@@ -3,6 +3,17 @@ from enum import Enum
 from typing import List
 from pydantic import BaseModel
 
+ID2LABEL = {
+    0: "PANTS_FIRE",
+    1: "FALSE",
+    2: "BARELY_TRUE",
+    3: "HALF_TRUE",
+    4: "MOSTLY_TRUE",
+    5: "TRUE",
+}
+
+LABEL2ID = {v: k for k, v in ID2LABEL.items()}
+
 class LabelEnum(int, Enum):
     PANTS_FIRE = 0
     FALSE = 1
