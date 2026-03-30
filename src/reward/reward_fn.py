@@ -25,7 +25,7 @@ from src.reward.text_metrics import f1_overlap
 from src.config.registry import register_reward
 
 @register_reward("basic_veracity_reward")
-def basic_veracity_reward(generated_text: str, sample: Sample, reward_cfg):
+def basic_veracity_reward(generated_text: str, sample: Sample, tokenizer: PreTrainedTokenizer, reward_cfg):
     reward = 0.0
 
     pred_label = parse_answer_label(generated_text)
@@ -42,6 +42,6 @@ def basic_veracity_reward(generated_text: str, sample: Sample, reward_cfg):
 
     gold_expl = sample.explanation
     if gold_expl:
-        reward += reward_cfg.explanation_overlap * f1_overlap(think_text, gold_expl)
+        reward += reward_cfg.explanation_overlap * f1_overlap(think_text, gold_expl, tokenizer)
 
     return float(reward)

@@ -9,6 +9,7 @@ from src.rl.masks import build_generation_mask
 def train_grpo_epoch(
     model,
     reward_fn,
+    prompt_fn,
     ref_model,
     tokenizer,
     dataloader,
@@ -40,6 +41,7 @@ def train_grpo_epoch(
             seq_batch, attn_batch, prompt_lens, flat_texts = rollout_group(
                 model=model,
                 tokenizer=tokenizer,
+                prompt_fn=prompt_fn,
                 batch_samples=batch_samples,
                 group_size=group_size,
                 max_new_tokens=max_new_tokens,
@@ -61,7 +63,7 @@ def train_grpo_epoch(
         idx = 0
         for b in range(batch_size):
             for g in range(group_size):
-                rewards[b, g] = reward_fn(flat_texts[idx], batch_samples[b])
+                rewards[b, g] = reward_fn(flat_texts[idx], batch_samples[b], tokenizer)
                 idx += 1
 
         advantages = compute_group_advantages(rewards)  # [B, G]

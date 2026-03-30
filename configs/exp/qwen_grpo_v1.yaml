@@ -16,7 +16,7 @@ optimizer:
   lr: 5.0e-6
 
 sft:
-  enabled: true
+  enabled: false
   epochs: 1
 
 grpo:
@@ -36,6 +36,11 @@ reward:
   label_correct: 1.0
   format_correct: 0.2
   explanation_overlap: 0.1
+
+prompt:
+  name: default_veracity_prompt
+  require_format: true
+  extras: {"top_k_evidence": 5}
 
 runtime:
   bf16: true

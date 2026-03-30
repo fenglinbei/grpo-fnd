@@ -1,14 +1,13 @@
 import torch
 
 from typing import List, Dict, Any
-from src.datasets.schemas import Sample
-from src.prompting.prompt_builder import build_prompt
 from src.rl.masks import pad_1d_tensors
 
 @torch.no_grad()
 def rollout_group(
     model,
     tokenizer,
+    prompt_fn,
     batch_samples: List[Dict[str, Any]],
     group_size: int,
     max_new_tokens: int,
@@ -30,7 +29,7 @@ def rollout_group(
     flat_texts = []
 
     for sample in batch_samples:
-        prompt = build_prompt(sample)
+        prompt = prompt_fn(sample)
         enc = tokenizer(prompt, return_tensors="pt", add_special_tokens=True)
         input_ids = enc["input_ids"].to(device)
         attention_mask = enc["attention_mask"].to(device)

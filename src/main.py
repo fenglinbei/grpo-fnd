@@ -16,7 +16,7 @@ from transformers import (
 )
 
 from src.config.loader import load_config, save_resolved_config
-from src.config.registry import register_prompt, register_reward
+from src.config.registry import build_prompt_fn, build_reward_fn
 from src.datasets.json_dataset import VeracityJsonDataset
 from src.datasets.collators.base import basic_collate_fn
 from src.training.train_sft import train_sft_epoch
@@ -138,6 +138,7 @@ def main():
     train_dataset = VeracityJsonDataset(cfg.data.train_path)
     val_dataset = VeracityJsonDataset(cfg.data.val_path)
     test_dataset = VeracityJsonDataset(cfg.data.test_path)
+    prompt_fn = build_prompt_fn(cfg.prompt)
 
     logger.info(
         "Datasets loaded: train={}, val={}, test={}",
@@ -291,7 +292,7 @@ def main():
     best_val_acc = -1.0
     best_ckpt_dir = os.path.join(cfg.output_dir, "best_checkpoint")
     last_ckpt_dir = os.path.join(cfg.output_dir, "last_checkpoint")
-    reward_fn = register_reward(cfg.reward.name)
+    reward_fn = build_reward_fn(cfg.reward)
 
     if cfg.grpo.enabled and cfg.grpo.epochs > 0:
         logger.info("===== GRPO Training starts: epochs={} =====", cfg.grpo.epochs)
@@ -311,6 +312,7 @@ def main():
             train_metrics = train_grpo_epoch(
                 model=model,
                 reward_fn=reward_fn,
+                prompt_fn=prompt_fn,
                 ref_model=ref_model,
                 tokenizer=tokenizer,
                 dataloader=train_loader,

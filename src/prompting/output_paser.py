@@ -5,7 +5,7 @@ import re
 from typing import Optional
 
 from src.datasets.schemas import LABEL2ID
-
+from src.datasets.sent_matcher import normalize_text
 
 
 def parse_answer_label(text: str) -> Optional[str]:

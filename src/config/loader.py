@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from src.config.schema import ExperimentConfig
+from src.config.schemas import ExperimentConfig
 
 
 def model_dump_compat(model) -> Dict[str, Any]:
