@@ -64,6 +64,9 @@ grpo:
   use_ref_model: false
   extras: {}
 
+train:
+  batch_size: 2
+
 eval:
   max_new_tokens: 128
   do_sample: false
