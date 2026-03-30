@@ -1,7 +1,7 @@
 import torch
 from tqdm import tqdm
 
-from sft.sft_builder import build_sft_batch
+from src.sft.sft_builder import build_sft_batch
 
 def train_sft_epoch(model, tokenizer, dataloader, optimizer, scheduler, device):
     model.train()

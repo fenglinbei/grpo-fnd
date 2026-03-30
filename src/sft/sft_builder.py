@@ -1,9 +1,9 @@
 import torch
 from typing import List, Dict, Any
 
-from prompting.prompt_builder import build_prompt
-from prompting.target_builder import build_sft_target
-from rl.masks import pad_1d_tensors
+from src.prompting.prompt_builder import build_prompt
+from src.prompting.target_builder import build_sft_target
+from src.rl.masks import pad_1d_tensors
 
 def build_sft_batch(tokenizer, batch_samples: List[Dict[str, Any]], device: torch.device):
     input_tensors = []

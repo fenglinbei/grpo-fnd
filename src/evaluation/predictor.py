@@ -1,8 +1,8 @@
 import torch
 from typing import Dict, Any
 
-from prompting.prompt_builder import build_prompt
-from prompting.output_paser import parse_answer_label
+from src.prompting.prompt_builder import build_prompt
+from src.prompting.output_paser import parse_answer_label
 
 @torch.no_grad()
 def predict_label(model, tokenizer, sample: Dict[str, Any], device: torch.device, max_new_tokens: int = 128):

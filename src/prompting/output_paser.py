@@ -4,7 +4,7 @@ import re
 
 from typing import Optional
 
-from datasets.schemas import LABEL2ID
+from src.datasets.schemas import LABEL2ID
 
 
 

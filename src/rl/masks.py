@@ -1,4 +1,5 @@
 import torch
+from typing import List
 
 def pad_1d_tensors(tensors: List[torch.Tensor], pad_value: int) -> (torch.Tensor, torch.Tensor):
     """

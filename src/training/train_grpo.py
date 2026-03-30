@@ -1,14 +1,14 @@
 import torch
 from tqdm import tqdm
-from rl.rollout import rollout_group
-from reward.advantage import compute_group_advantages
-from modeling.logprob import gather_token_logprobs
-from rl.grpo_loss import grpo_loss
-from reward.reward_fn import compute_reward
-from rl.masks import build_generation_mask
+from src.rl.rollout import rollout_group
+from src.reward.advantage import compute_group_advantages
+from src.modeling.logprob import gather_token_logprobs
+from src.rl.grpo_loss import grpo_loss
+from src.rl.masks import build_generation_mask
 
 def train_grpo_epoch(
     model,
+    reward_fn,
     ref_model,
     tokenizer,
     dataloader,
@@ -61,7 +61,7 @@ def train_grpo_epoch(
         idx = 0
         for b in range(batch_size):
             for g in range(group_size):
-                rewards[b, g] = compute_reward(flat_texts[idx], batch_samples[b])
+                rewards[b, g] = reward_fn(flat_texts[idx], batch_samples[b])
                 idx += 1
 
         advantages = compute_group_advantages(rewards)  # [B, G]

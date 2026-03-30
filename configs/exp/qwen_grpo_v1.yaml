@@ -1,0 +1,41 @@
+_base_: ../base.yaml
+
+exp_name: qwen_grpo_v1
+
+data:
+  train_path: data/processed/LIAR-RAW/train.json
+  val_path: data/processed/LIAR-RAW/val.json
+  test_path: data/processed/LIAR-RAW/test.json
+  num_workers: 0
+  max_evidence: null
+
+model:
+  name_or_path: models/Qwen3-0.6B/
+
+optimizer:
+  lr: 5.0e-6
+
+sft:
+  enabled: true
+  epochs: 2
+
+grpo:
+  enabled: true
+  epochs: 2
+  group_size: 8
+  num_update_epochs: 4
+  clip_eps: 0.2
+  kl_beta: 0.0
+  use_ref_model: false
+  max_new_tokens: 160
+
+reward:
+  label_correct: 1.0
+  format_correct: 0.2
+  explanation_overlap: 0.1
+
+runtime:
+  bf16: true
+
+experimental:
+  note: "first larger model run"

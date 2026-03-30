@@ -18,36 +18,30 @@
 # invalid output penalty
 from transformers import PreTrainedTokenizer
 
-from datasets.schemas import ID2LABEL, Sample
-from prompting.output_paser import parse_answer_label, parse_think_text, has_valid_format
-from prompting.target_builder import build_sft_target
-from reward.text_metrics import f1_overlap
+from src.datasets.schemas import ID2LABEL, Sample
+from src.prompting.output_paser import parse_answer_label, parse_think_text, has_valid_format
+from src.prompting.target_builder import build_sft_target
+from src.reward.text_metrics import f1_overlap
+from src.config.registry import register_reward
 
-def compute_reward(generated_text: str, sample: Sample, tokenizer: PreTrainedTokenizer) -> float:
-    """
-    一个简单但可运行的规则奖励：
-    - 标签正确：+1.0
-    - 格式正确：+0.2
-    - reasoning 与 gold explanation 有一定重叠：最多 +0.2
-    - 输出空或标签无法解析：-0.2
-    """
+@register_reward("basic_veracity_reward")
+def basic_veracity_reward(generated_text: str, sample: Sample, reward_cfg):
     reward = 0.0
 
     pred_label = parse_answer_label(generated_text)
-    gold_label = ID2LABEL[sample.label]
+    gold_label = ID2LABEL[int(sample.label)]
     think_text = parse_think_text(generated_text)
 
     if pred_label is None:
-        reward -= 0.2
-    else:
-        if pred_label == gold_label:
-            reward += 1.0
+        reward += reward_cfg.invalid_output_penalty
+    elif pred_label == gold_label:
+        reward += reward_cfg.label_correct
 
     if has_valid_format(generated_text):
-        reward += 0.2
+        reward += reward_cfg.format_correct
 
-    if sample["explanation"]:
-        overlap = f1_overlap(think_text, sample.explanation, tokenizer)
-        reward += 0.2 * overlap
+    gold_expl = sample.explanation
+    if gold_expl:
+        reward += reward_cfg.explanation_overlap * f1_overlap(think_text, gold_expl)
 
     return float(reward)

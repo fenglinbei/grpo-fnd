@@ -1,14 +1,12 @@
 import os
-import sys
-sys.path.append('.')
 import json
 from tqdm import tqdm
 from loguru import logger
 from typing import List, Dict, Any
 from torch.utils.data import Dataset, DataLoader
 
-from datasets.schemas import Sample, LabelEnum
-from datasets.sent_matcher import align_tokenized_to_raw_with_meta
+from src.datasets.schemas import Sample, LabelEnum
+from src.datasets.sent_matcher import align_tokenized_to_raw_with_meta
 
 LABEL2ID = {
     "pants-fire": 0,
@@ -100,14 +98,13 @@ def build_and_save_rawfc_datasets(train_dir, val_dir, test_dir, output_dir):
     save_dataset(val_dataset, f'{output_dir}/val.json')
     save_dataset(test_dataset, f'{output_dir}/test.json')
 
-def load_dataset(dataset_name: str, split_name: str) -> list[Sample]:
-    file_path = f"data/processed/{dataset_name}/{split_name}.json"
-    dataset = load_json(file_path)
+def load_dataset(dataset_path: str) -> list[Sample]:
+    dataset = load_json(dataset_path)
     return [Sample.model_validate(sample) for sample in dataset]
     
-class FNDDataset(Dataset):
-    def __init__(self, dataset_name: str, split_name: str):
-        self.data = load_dataset(dataset_name, split_name)
+class VeracityJsonDataset(Dataset):
+    def __init__(self, dataset_path: str):
+        self.data = load_dataset(dataset_path)
 
     def __len__(self):
         return len(self.data)

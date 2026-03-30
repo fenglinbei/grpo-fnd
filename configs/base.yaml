@@ -1,0 +1,78 @@
+exp_name: debug
+task_name: veracity_grpo
+
+data:
+  train_path: data/train.json
+  val_path: data/val.json
+  test_path: data/test.json
+  num_workers: 0
+  max_evidence: null
+
+model:
+  name_or_path: Qwen/Qwen2.5-0.5B-Instruct
+  tokenizer_name_or_path: null
+  trust_remote_code: false
+  use_fast_tokenizer: true
+  torch_dtype: auto
+
+optimizer:
+  name: adamw
+  lr: 1.0e-5
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  max_grad_norm: 1.0
+
+scheduler:
+  name: linear
+  warmup_ratio: 0.1
+
+runtime:
+  seed: 42
+  device: cuda
+  gradient_accumulation_steps: 1
+  fp16: false
+  bf16: false
+
+prompt:
+  name: default_veracity_prompt
+  require_format: true
+  extras: {}
+
+reward:
+  name: basic_veracity_reward
+  label_correct: 1.0
+  format_correct: 0.2
+  explanation_overlap: 0.2
+  invalid_output_penalty: -0.2
+  extras: {}
+
+sft:
+  enabled: true
+  epochs: 1
+
+grpo:
+  enabled: true
+  epochs: 1
+  group_size: 4
+  num_update_epochs: 2
+  clip_eps: 0.2
+  kl_beta: 0.0
+  temperature: 1.0
+  top_p: 0.95
+  max_new_tokens: 128
+  use_ref_model: false
+  extras: {}
+
+eval:
+  max_new_tokens: 128
+  do_sample: false
+
+logging:
+  output_root: outputs
+  save_best: true
+  save_last: true
+  save_resolved_config: true
+  print_config: true
+
+experimental: {}

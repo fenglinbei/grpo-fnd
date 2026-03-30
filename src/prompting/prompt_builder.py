@@ -3,8 +3,8 @@
 from typing import Dict, Any
 
 from click import prompt
-from datasets.schemas import Sample
-from prompting.prompts import USER_PROMPT_V1
+from src.datasets.schemas import Sample
+from src.prompting.prompts import USER_PROMPT_V1
 
 def build_prompt(sample: Sample) -> str:
     evidence_text = ""

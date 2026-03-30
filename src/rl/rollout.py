@@ -1,9 +1,9 @@
 import torch
 
 from typing import List, Dict, Any
-from datasets.schemas import Sample
-from prompting.prompt_builder import build_prompt
-from rl.masks import pad_1d_tensors
+from src.datasets.schemas import Sample
+from src.prompting.prompt_builder import build_prompt
+from src.rl.masks import pad_1d_tensors
 
 @torch.no_grad()
 def rollout_group(

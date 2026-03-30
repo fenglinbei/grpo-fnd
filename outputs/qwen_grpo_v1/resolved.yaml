@@ -1,0 +1,71 @@
+exp_name: qwen_grpo_v1
+task_name: veracity_grpo
+data:
+  train_path: data/processed/LIAR-RAW/train.json
+  val_path: data/processed/LIAR-RAW/val.json
+  test_path: data/processed/LIAR-RAW/test.json
+  num_workers: 0
+  max_evidence: null
+model:
+  name_or_path: models/Qwen3-0.6B/
+  tokenizer_name_or_path: null
+  trust_remote_code: false
+  use_fast_tokenizer: true
+  torch_dtype: auto
+optimizer:
+  name: adamw
+  lr: 5.0e-06
+  weight_decay: 0.01
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-08
+  max_grad_norm: 1.0
+scheduler:
+  name: linear
+  warmup_ratio: 0.1
+runtime:
+  seed: 42
+  device: cuda
+  gradient_accumulation_steps: 1
+  fp16: false
+  bf16: true
+prompt:
+  name: default_veracity_prompt
+  require_format: true
+  extras: {}
+reward:
+  name: basic_veracity_reward
+  label_correct: 1.0
+  format_correct: 0.2
+  explanation_overlap: 0.1
+  invalid_output_penalty: -0.2
+  extras: {}
+sft:
+  enabled: true
+  epochs: 2
+grpo:
+  enabled: true
+  epochs: 2
+  group_size: 8
+  num_update_epochs: 4
+  clip_eps: 0.2
+  kl_beta: 0.0
+  temperature: 1.0
+  top_p: 0.95
+  max_new_tokens: 160
+  use_ref_model: false
+  extras: {}
+train:
+  batch_size: 2
+eval:
+  max_new_tokens: 128
+  do_sample: false
+logging:
+  output_root: outputs
+  save_best: true
+  save_last: true
+  save_resolved_config: true
+  print_config: true
+experimental:
+  note: first larger model run
