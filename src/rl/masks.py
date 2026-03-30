@@ -1,7 +1,7 @@
 import torch
 from typing import List
 
-def pad_1d_tensors(tensors: List[torch.Tensor], pad_value: int) -> (torch.Tensor, torch.Tensor):
+def pad_1d_tensors(tensors: List[torch.Tensor], pad_value: int) -> tuple[torch.Tensor, torch.Tensor]:
     """
     返回:
       padded: [N, T]
