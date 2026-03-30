@@ -43,7 +43,7 @@ reward:
   extras: {}
 sft:
   enabled: true
-  epochs: 2
+  epochs: 1
 grpo:
   enabled: true
   epochs: 2
