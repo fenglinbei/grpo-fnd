@@ -588,6 +588,8 @@ def main():
     parser.add_argument("--opts", nargs="*", default=[])
     args = parser.parse_args()
 
+    swanlab_run = None
+
     try:
         # -------------------------
         # 配置
@@ -596,7 +598,7 @@ def main():
         os.makedirs(cfg.output_dir, exist_ok=True)
         setup_logger(cfg.output_dir, log_level=cfg.logging.level)
 
-        swanlab_run = None
+        
         swanlab_enabled = cfg.logging.swanlab_enabled
 
         logger.info("Loaded config from {}", args.config)
