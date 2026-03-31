@@ -38,9 +38,7 @@ def train_grpo_epoch(
     for batch_samples in pbar:
         batch_size = len(batch_samples)
 
-        # -------------------------
         # A. rollout（old policy）
-        # -------------------------
         model.eval()
         with torch.no_grad():
             seq_batch, attn_batch, prompt_lens, flat_texts = rollout_group(
@@ -62,9 +60,7 @@ def train_grpo_epoch(
             else:
                 ref_logprobs = None
 
-        # -------------------------
         # B. rewards / advantages
-        # -------------------------
         rewards = torch.zeros(
             (batch_size, group_size),
             dtype=torch.float32,
@@ -77,15 +73,16 @@ def train_grpo_epoch(
                 rewards[b, g] = reward_fn(flat_texts[idx], batch_samples[b], tokenizer)
                 idx += 1
 
-        advantages = compute_group_advantages(rewards)  # [B, G]
-        flat_advantages = advantages.reshape(-1)        # [N]
-        gen_mask = build_generation_mask(attn_batch, prompt_lens)  # [N, T-1]
+        advantages = compute_group_advantages(rewards)
+        flat_advantages = advantages.reshape(-1)
+        gen_mask = build_generation_mask(attn_batch, prompt_lens)
 
         step_reward = float(rewards.mean().item())
+        step_reward_std = float(rewards.std(unbiased=False).item())
+        adv_mean = float(advantages.mean().item())
+        adv_std = float(advantages.std(unbiased=False).item())
 
-        # -------------------------
         # C. 多轮更新当前 policy
-        # -------------------------
         model.train()
         last_loss = None
 
@@ -104,7 +101,10 @@ def train_grpo_epoch(
 
             optimizer.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            grad_norm = float(grad_norm.item() if isinstance(grad_norm, torch.Tensor) else grad_norm)
+
             optimizer.step()
             if scheduler is not None:
                 scheduler.step()
@@ -112,6 +112,8 @@ def train_grpo_epoch(
             global_step += 1
             total_optimizer_updates += 1
             last_loss = loss.detach()
+
+            current_lr = float(optimizer.param_groups[0]["lr"]) if optimizer.param_groups else 0.0
 
             if on_step_end is not None:
                 on_step_end(
@@ -122,11 +124,17 @@ def train_grpo_epoch(
                     train_metrics={
                         "loss": float(last_loss.item()),
                         "reward": step_reward,
+                        "reward_std": step_reward_std,
+                        "adv_mean": adv_mean,
+                        "adv_std": adv_std,
+                        "lr": current_lr,
+                        "grad_norm": grad_norm,
+                        "batch_size": batch_size,
                         "inner_update": inner_update_idx + 1,
                         "num_update_epochs": num_update_epochs,
+                        "optimizer_updates": total_optimizer_updates,
                     },
                 )
-                # callback 里可能会切到 eval，这里显式切回 train
                 model.train()
 
         step_loss = float(last_loss.item()) if last_loss is not None else 0.0

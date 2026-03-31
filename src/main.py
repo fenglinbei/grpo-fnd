@@ -588,9 +588,6 @@ def main():
     parser.add_argument("--opts", nargs="*", default=[])
     args = parser.parse_args()
 
-    swanlab_run = None
-    swanlab_enabled = os.getenv("SWANLAB_ENABLE", "0") == "1"
-
     try:
         # -------------------------
         # 配置
@@ -598,6 +595,9 @@ def main():
         cfg: ExperimentConfig = load_config(args.config, args.opts)
         os.makedirs(cfg.output_dir, exist_ok=True)
         setup_logger(cfg.output_dir, log_level=cfg.logging.level)
+
+        swanlab_run = None
+        swanlab_enabled = cfg.logging.swanlab_enabled
 
         logger.info("Loaded config from {}", args.config)
         if args.opts:
@@ -724,22 +724,16 @@ def main():
         # SwanLab
         # -------------------------
         if swanlab_enabled:
-            if swanlab is None:
-                raise ImportError(
-                    "检测到 SWANLAB_ENABLE=1，但当前环境没有安装 swanlab。请先执行: pip install swanlab"
-                )
 
             if is_main_process():
-                swanlab_tags = [x.strip() for x in os.getenv("SWANLAB_TAGS", "").split(",") if x.strip()]
-                swanlab_group = os.getenv("SWANLAB_GROUP", "").strip()
-                swanlab_experiment_name = os.getenv(
-                    "SWANLAB_EXPERIMENT_NAME",
-                    os.path.basename(os.path.abspath(cfg.output_dir.rstrip("/"))),
-                )
-                swanlab_description = os.getenv("SWANLAB_DESCRIPTION", "").strip()
+                swanlab_tags = cfg.logging.swanlab_tags or []
+                swanlab_group = cfg.logging.swanlab_group or ""
+                swanlab_experiment_name = cfg.logging.swanlab_experiment_name or ""
+
+                swanlab_description = cfg.logging.swanlab_description or ""
 
                 init_kwargs = dict(
-                    project=os.getenv("SWANLAB_PROJECT", "grpo-veracity"),
+                    project=cfg.logging.swanlab_project,
                     experiment_name=swanlab_experiment_name,
                     config=cfg.model_dump(),
                     logdir=os.path.join(cfg.output_dir, "swanlab"),
@@ -747,7 +741,7 @@ def main():
                 if swanlab_description:
                     init_kwargs["description"] = swanlab_description
                 if swanlab_tags:
-                    init_kwargs["tags"] = swanlab_tags
+                    init_kwargs["tags"] = ",".join(swanlab_tags)
                 if swanlab_group:
                     init_kwargs["group"] = swanlab_group
 

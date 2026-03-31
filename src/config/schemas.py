@@ -111,6 +111,12 @@ class LoggingConfig(StrictBaseModel):
     save_resolved_config: bool = True
     print_config: bool = True
     level: str = "INFO"
+    swanlab_enabled: bool = False
+    swanlab_project: Optional[str] = None
+    swanlab_tags: Optional[List[str]] = None
+    swanlab_group: Optional[str] = None
+    swanlab_experiment_name: Optional[str] = None
+    swanlab_description: Optional[str] = None
 
 
 class ExperimentConfig(StrictBaseModel):

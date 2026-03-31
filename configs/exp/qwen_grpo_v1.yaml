@@ -56,3 +56,9 @@ experimental:
 
 logging:
   level: DEBUG
+  swanlab_enabled: true
+  swanlab_project: "grpo-veracity"
+  swanlab_tags: grpo,qwen,liar
+  swanlab_group: "qwen-0.6b"
+  swanlab_experiment_name: "qwen_grpo_v1"
+  swanlab_description: "First run of GRPO with Qwen-0.6B on the LIAR-RAW dataset. Using 1 epoch of SFT followed by 2 epochs of GRPO. Reward based on label correctness, format correctness, and explanation overlap."

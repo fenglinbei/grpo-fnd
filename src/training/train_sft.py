@@ -46,14 +46,15 @@ def train_sft_epoch(
         total_loss += float(raw_loss.item())
         total_micro_steps += 1
 
-        # 是否执行一次真正的 optimizer update
         should_step = (
             micro_step % grad_accum_steps == 0
             or micro_step == len(dataloader)
         )
 
         if should_step:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            grad_norm = float(grad_norm.item() if isinstance(grad_norm, torch.Tensor) else grad_norm)
+
             optimizer.step()
             if scheduler is not None:
                 scheduler.step()
@@ -61,6 +62,8 @@ def train_sft_epoch(
 
             global_step += 1
             total_optimizer_updates += 1
+
+            current_lr = float(optimizer.param_groups[0]["lr"]) if optimizer.param_groups else 0.0
 
             if on_step_end is not None:
                 on_step_end(
@@ -70,8 +73,12 @@ def train_sft_epoch(
                     tokenizer=tokenizer,
                     train_metrics={
                         "loss": float(raw_loss.item()),
+                        "lr": current_lr,
+                        "grad_norm": grad_norm,
                         "seq_len": int(input_ids.size(1)),
                         "grad_accum_steps": grad_accum_steps,
+                        "micro_step": micro_step,
+                        "optimizer_updates": total_optimizer_updates,
                     },
                 )
                 model.train()
