@@ -66,6 +66,7 @@ class RewardConfig(StrictBaseModel):
 class SFTConfig(StrictBaseModel):
     enabled: bool = True
     epochs: int = 1
+    max_length: int = 512
 
 
 class GRPOConfig(StrictBaseModel):
@@ -84,6 +85,7 @@ class GRPOConfig(StrictBaseModel):
 
 class TrainConfig(StrictBaseModel):
     batch_size: int = 2
+    grad_accum_steps: int = 1
 
 
 class EvalConfig(StrictBaseModel):

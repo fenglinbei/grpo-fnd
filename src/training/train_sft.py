@@ -11,17 +11,26 @@ def train_sft_epoch(
     optimizer,
     scheduler,
     device,
+    grad_accum_steps: int = 1,
+    max_length: int | None = None,
     global_step: int = 0,
     on_step_end=None,
 ):
     model.train()
     total_loss = 0.0
-    total_steps = 0
+    total_micro_steps = 0
+    total_optimizer_updates = 0
+
+    optimizer.zero_grad(set_to_none=True)
 
     pbar = tqdm(dataloader, desc="SFT", dynamic_ncols=True)
-    for batch_samples in pbar:
+
+    for micro_step, batch_samples in enumerate(pbar, start=1):
         input_ids, attention_mask, labels = build_sft_batch(
-            tokenizer, batch_samples, device
+            tokenizer=tokenizer,
+            batch_samples=batch_samples,
+            device=device,
+            max_length=max_length,
         )
 
         outputs = model(
@@ -29,43 +38,54 @@ def train_sft_epoch(
             attention_mask=attention_mask,
             labels=labels,
         )
-        loss = outputs.loss
+        raw_loss = outputs.loss
+        loss = raw_loss / grad_accum_steps
 
-        optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optimizer.step()
-        if scheduler is not None:
-            scheduler.step()
 
-        global_step += 1
-        step_loss = float(loss.item())
+        total_loss += float(raw_loss.item())
+        total_micro_steps += 1
 
-        total_loss += step_loss
-        total_steps += 1
+        # 是否执行一次真正的 optimizer update
+        should_step = (
+            micro_step % grad_accum_steps == 0
+            or micro_step == len(dataloader)
+        )
 
-        if on_step_end is not None:
-            on_step_end(
-                global_step=global_step,
-                stage="sft",
-                model=model,
-                tokenizer=tokenizer,
-                train_metrics={
-                    "loss": step_loss,
-                },
-            )
-            # callback 里可能会切到 eval，这里显式切回 train
-            model.train()
+        if should_step:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+            if scheduler is not None:
+                scheduler.step()
+            optimizer.zero_grad(set_to_none=True)
+
+            global_step += 1
+            total_optimizer_updates += 1
+
+            if on_step_end is not None:
+                on_step_end(
+                    global_step=global_step,
+                    stage="sft",
+                    model=model,
+                    tokenizer=tokenizer,
+                    train_metrics={
+                        "loss": float(raw_loss.item()),
+                        "seq_len": int(input_ids.size(1)),
+                        "grad_accum_steps": grad_accum_steps,
+                    },
+                )
+                model.train()
 
         pbar.set_postfix(
             {
-                "loss": f"{step_loss:.4f}",
+                "loss": f"{raw_loss.item():.4f}",
                 "gs": global_step,
+                "seq": int(input_ids.size(1)),
             }
         )
 
     return {
-        "loss": total_loss / max(1, total_steps),
+        "loss": total_loss / max(1, total_micro_steps),
         "global_step": global_step,
-        "num_optimizer_updates": total_steps,
+        "num_optimizer_updates": total_optimizer_updates,
     }

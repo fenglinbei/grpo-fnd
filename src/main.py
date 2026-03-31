@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import math
 import time
 import argparse
 import random
@@ -199,11 +200,15 @@ def main():
         weight_decay=cfg.optimizer.weight_decay,
     )
 
+    grad_accum_steps = max(1, cfg.train.grad_accum_steps)
+
+    sft_steps_per_epoch = math.ceil(len(train_loader) / grad_accum_steps)
+    sft_train_steps = sft_steps_per_epoch * sft_epochs
+
     sft_epochs = cfg.sft.epochs if cfg.sft.enabled else 0
     grpo_epochs = cfg.grpo.epochs if cfg.grpo.enabled else 0
     grpo_inner_updates = cfg.grpo.num_update_epochs if cfg.grpo.enabled else 0
 
-    sft_train_steps = len(train_loader) * sft_epochs
     grpo_train_steps = len(train_loader) * grpo_epochs * max(1, grpo_inner_updates)
     total_train_steps = max(1, sft_train_steps + grpo_train_steps)
     warmup_steps = int(total_train_steps * cfg.scheduler.warmup_ratio)
@@ -368,6 +373,8 @@ def main():
                 optimizer=optimizer,
                 scheduler=scheduler,
                 device=device,
+                grad_accum_steps=cfg.train.grad_accum_steps,
+                max_length=cfg.sft.max_length,
                 global_step=global_step,
                 on_step_end=on_step_end,
             )

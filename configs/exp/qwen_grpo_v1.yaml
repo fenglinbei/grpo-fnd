@@ -18,6 +18,7 @@ optimizer:
 sft:
   enabled: true
   epochs: 1
+  max_length: 256
 
 grpo:
   enabled: true
@@ -30,7 +31,8 @@ grpo:
   max_new_tokens: 180
 
 train:
-  batch_size: 2
+  batch_size: 1
+  grad_accum_steps: 2
 
 eval:
   every_n_steps: 2000
