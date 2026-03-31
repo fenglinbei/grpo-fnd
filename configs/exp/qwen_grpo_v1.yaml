@@ -16,7 +16,7 @@ optimizer:
   lr: 5.0e-6
 
 sft:
-  enabled: true
+  enabled: false
   epochs: 1
   max_length: 256 # 直接截断，不使用 sliding window
 
@@ -35,7 +35,7 @@ train:
   grad_accum_steps: 2
 
 eval:
-  every_n_steps: 2000
+  every_n_steps: 200
   max_new_tokens: 180
 
 reward:
