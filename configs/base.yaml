@@ -72,9 +72,8 @@ eval:
   do_sample: false
   every_n_steps: 200      # <= 0 表示关闭 step eval
   eval_on_epoch_end: true
-  save_best_metric: macro_f1
-  step_unit: optimizer    # 可选：optimizer / batch
-
+  save_best_metric: macro_f1 
+  
 logging:
   output_root: outputs
   save_best: true
