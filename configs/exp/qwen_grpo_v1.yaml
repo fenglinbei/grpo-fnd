@@ -30,7 +30,7 @@ grpo:
   max_new_tokens: 128
 
 train:
-  batch_size: 2
+  batch_size: 1
 
 eval:
   every_n_steps: 50
