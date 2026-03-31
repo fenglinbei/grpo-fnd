@@ -113,7 +113,7 @@ class LoggingConfig(StrictBaseModel):
     level: str = "INFO"
     swanlab_enabled: bool = False
     swanlab_project: Optional[str] = None
-    swanlab_tags: Optional[str] = None
+    swanlab_tags: Optional[list[str]] = None
     swanlab_group: Optional[str] = None
     swanlab_experiment_name: Optional[str] = None
     swanlab_description: Optional[str] = None
