@@ -15,6 +15,7 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 
+from src.config.schemas import ExperimentConfig
 from src.config.loader import load_config, save_resolved_config
 from src.config.registry import build_prompt_fn, build_reward_fn
 from src.datasets.json_dataset import VeracityJsonDataset
@@ -33,14 +34,14 @@ def set_seed(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 
-def setup_logger(output_dir: str, log_filename: str = "train.log"):
+def setup_logger(output_dir: str, log_filename: str = "train.log", log_level: str = "INFO"):
     os.makedirs(output_dir, exist_ok=True)
 
     logger.remove()
 
     logger.add(
         sys.stderr,
-        level="INFO",
+        level=log_level,
         colorize=True,
         format=(
             "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
@@ -99,9 +100,9 @@ def main():
     # -------------------------
     # 配置
     # -------------------------
-    cfg = load_config(args.config, args.opts)
+    cfg: ExperimentConfig = load_config(args.config, args.opts)
     os.makedirs(cfg.output_dir, exist_ok=True)
-    setup_logger(cfg.output_dir)
+    setup_logger(cfg.output_dir, log_level=cfg.logging.log_level)
 
     logger.info("Loaded config from {}", args.config)
     if args.opts:

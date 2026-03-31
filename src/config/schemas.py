@@ -108,6 +108,7 @@ class LoggingConfig(StrictBaseModel):
     save_last: bool = True
     save_resolved_config: bool = True
     print_config: bool = True
+    log_level: str = "INFO"
 
 
 class ExperimentConfig(StrictBaseModel):

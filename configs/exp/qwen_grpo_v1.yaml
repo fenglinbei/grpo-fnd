@@ -51,3 +51,6 @@ runtime:
 
 experimental:
   note: "first larger model run"
+
+logging:
+  level: DEBUG
