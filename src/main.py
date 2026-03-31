@@ -102,7 +102,7 @@ def main():
     # -------------------------
     cfg: ExperimentConfig = load_config(args.config, args.opts)
     os.makedirs(cfg.output_dir, exist_ok=True)
-    setup_logger(cfg.output_dir, log_level=cfg.logging.log_level)
+    setup_logger(cfg.output_dir, log_level=cfg.logging.level)
 
     logger.info("Loaded config from {}", args.config)
     if args.opts:
