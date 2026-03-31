@@ -178,7 +178,7 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(
         cfg.model.name_or_path,
         trust_remote_code=cfg.model.trust_remote_code,
-        torch_dtype=torch_dtype,
+        dtype=torch_dtype,
     ).to(device)
     logger.info("Policy model loaded from {}", cfg.model.name_or_path)
     logger.debug("Model dtype: {}", model.dtype)
