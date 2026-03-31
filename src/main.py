@@ -743,7 +743,7 @@ def main():
                 if swanlab_description:
                     init_kwargs["description"] = swanlab_description
                 if swanlab_tags:
-                    init_kwargs["tags"] = ",".join(swanlab_tags)
+                    init_kwargs["tags"] = swanlab_tags
                 if swanlab_group:
                     init_kwargs["group"] = swanlab_group
 
