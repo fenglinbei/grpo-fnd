@@ -181,6 +181,7 @@ def main():
         torch_dtype=torch_dtype,
     ).to(device)
     logger.info("Policy model loaded from {}", cfg.model.name_or_path)
+    logger.debug("Model dtype: {}", model.dtype)
 
     model.config.use_cache = cfg.model.use_cache
     if cfg.model.gradient_checkpointing:
