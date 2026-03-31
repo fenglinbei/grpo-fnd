@@ -5,6 +5,7 @@ import math
 import time
 import argparse
 import random
+import swanlab
 
 import torch
 from loguru import logger
@@ -91,8 +92,33 @@ def format_eval_metrics(metrics: dict) -> str:
         f"macro_f1={metrics['macro_f1']:.4f}"
     )
 
+def is_main_process() -> bool:
+    if not torch.distributed.is_available():
+        return True
+    if not torch.distributed.is_initialized():
+        return True
+    return torch.distributed.get_rank() == 0
 
-def main():
+
+def to_float(v):
+    if isinstance(v, torch.Tensor):
+        if v.numel() == 1:
+            return float(v.item())
+        return None
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return float(v)
+    return None
+
+
+def flatten_scalar_metrics(prefix: str, metrics: dict) -> dict:
+    out = {}
+    for k, v in metrics.items():
+        fv = to_float(v)
+        if fv is not None:
+            out[f"{prefix}/{k}"] = fv
+    return out
+
+def main_old():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--opts", nargs="*", default=[])
@@ -556,6 +582,584 @@ def main():
             m["support"],
         )
 
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, required=True)
+    parser.add_argument("--opts", nargs="*", default=[])
+    args = parser.parse_args()
+
+    swanlab_run = None
+    swanlab_enabled = os.getenv("SWANLAB_ENABLE", "0") == "1"
+
+    try:
+        # -------------------------
+        # 配置
+        # -------------------------
+        cfg: ExperimentConfig = load_config(args.config, args.opts)
+        os.makedirs(cfg.output_dir, exist_ok=True)
+        setup_logger(cfg.output_dir, log_level=cfg.logging.level)
+
+        logger.info("Loaded config from {}", args.config)
+        if args.opts:
+            logger.info("Override opts: {}", args.opts)
+
+        if cfg.logging.save_resolved_config:
+            resolved_path = os.path.join(cfg.output_dir, "resolved.yaml")
+            save_resolved_config(cfg, resolved_path)
+            logger.info("Saved resolved config to {}", resolved_path)
+
+        if cfg.logging.print_config:
+            logger.info(
+                "Resolved config:\n{}",
+                json.dumps(cfg.model_dump(), indent=2, ensure_ascii=False),
+            )
+
+        # -------------------------
+        # 基础设置
+        # -------------------------
+        set_seed(cfg.runtime.seed)
+        logger.info("Set random seed to {}", cfg.runtime.seed)
+
+        device = torch.device(cfg.runtime.device if torch.cuda.is_available() else "cpu")
+        logger.info("Using device: {}", device)
+
+        batch_size = cfg.train.batch_size
+        torch_dtype = resolve_torch_dtype(cfg.model.torch_dtype)
+        logger.info("Batch size: {}", batch_size)
+        logger.info("Torch dtype: {}", cfg.model.torch_dtype)
+
+        # -------------------------
+        # 数据
+        # -------------------------
+        logger.info("Loading datasets...")
+        train_dataset = VeracityJsonDataset(cfg.data.train_path)
+        val_dataset = VeracityJsonDataset(cfg.data.val_path)
+        test_dataset = VeracityJsonDataset(cfg.data.test_path)
+        prompt_fn = build_prompt_fn(cfg.prompt)
+
+        logger.info(
+            "Datasets loaded: train={}, val={}, test={}",
+            len(train_dataset),
+            len(val_dataset),
+            len(test_dataset),
+        )
+
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=cfg.data.num_workers,
+            collate_fn=basic_collate_fn,
+        )
+        logger.info(
+            "Train DataLoader ready: steps_per_epoch={}, num_workers={}",
+            len(train_loader),
+            cfg.data.num_workers,
+        )
+
+        # -------------------------
+        # tokenizer / model
+        # -------------------------
+        logger.info("Loading tokenizer and model...")
+        tokenizer_name = cfg.model.tokenizer_name_or_path or cfg.model.name_or_path
+        tokenizer = AutoTokenizer.from_pretrained(
+            tokenizer_name,
+            use_fast=cfg.model.use_fast_tokenizer,
+            trust_remote_code=cfg.model.trust_remote_code,
+        )
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+            logger.warning("Tokenizer has no pad_token. Fallback to eos_token as pad_token.")
+
+        model = AutoModelForCausalLM.from_pretrained(
+            cfg.model.name_or_path,
+            trust_remote_code=cfg.model.trust_remote_code,
+            torch_dtype=torch_dtype,   # 这里顺手修正
+        ).to(device)
+        logger.info("Policy model loaded from {}", cfg.model.name_or_path)
+        logger.debug("Model dtype: {}", model.dtype)
+
+        model.config.use_cache = cfg.model.use_cache
+        if cfg.model.gradient_checkpointing:
+            model.gradient_checkpointing_enable()
+
+        # -------------------------
+        # optimizer / scheduler
+        # -------------------------
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=cfg.optimizer.lr,
+            betas=tuple(cfg.optimizer.betas),
+            eps=cfg.optimizer.eps,
+            weight_decay=cfg.optimizer.weight_decay,
+        )
+
+        grad_accum_steps = max(1, cfg.train.grad_accum_steps)
+
+        sft_epochs = cfg.sft.epochs if cfg.sft.enabled else 0
+        grpo_epochs = cfg.grpo.epochs if cfg.grpo.enabled else 0
+        grpo_inner_updates = cfg.grpo.num_update_epochs if cfg.grpo.enabled else 0
+
+        sft_steps_per_epoch = math.ceil(len(train_loader) / grad_accum_steps)
+        sft_train_steps = sft_steps_per_epoch * sft_epochs
+
+        grpo_train_steps = len(train_loader) * grpo_epochs * max(1, grpo_inner_updates)
+        total_train_steps = max(1, sft_train_steps + grpo_train_steps)
+        warmup_steps = int(total_train_steps * cfg.scheduler.warmup_ratio)
+
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=warmup_steps,
+            num_training_steps=total_train_steps,
+        )
+
+        logger.info(
+            "Optimizer and scheduler ready: lr={}, warmup_steps={}, total_train_steps={}",
+            cfg.optimizer.lr,
+            warmup_steps,
+            total_train_steps,
+        )
+
+        # -------------------------
+        # SwanLab
+        # -------------------------
+        if swanlab_enabled:
+            if swanlab is None:
+                raise ImportError(
+                    "检测到 SWANLAB_ENABLE=1，但当前环境没有安装 swanlab。请先执行: pip install swanlab"
+                )
+
+            if is_main_process():
+                swanlab_tags = [x.strip() for x in os.getenv("SWANLAB_TAGS", "").split(",") if x.strip()]
+                swanlab_group = os.getenv("SWANLAB_GROUP", "").strip()
+                swanlab_experiment_name = os.getenv(
+                    "SWANLAB_EXPERIMENT_NAME",
+                    os.path.basename(os.path.abspath(cfg.output_dir.rstrip("/"))),
+                )
+                swanlab_description = os.getenv("SWANLAB_DESCRIPTION", "").strip()
+
+                init_kwargs = dict(
+                    project=os.getenv("SWANLAB_PROJECT", "grpo-veracity"),
+                    experiment_name=swanlab_experiment_name,
+                    config=cfg.model_dump(),
+                    logdir=os.path.join(cfg.output_dir, "swanlab"),
+                )
+                if swanlab_description:
+                    init_kwargs["description"] = swanlab_description
+                if swanlab_tags:
+                    init_kwargs["tags"] = swanlab_tags
+                if swanlab_group:
+                    init_kwargs["group"] = swanlab_group
+
+                swanlab_run = swanlab.init(**init_kwargs)
+                logger.info("SwanLab initialized.")
+
+                swanlab.log(
+                    {
+                        "meta/train_size": float(len(train_dataset)),
+                        "meta/val_size": float(len(val_dataset)),
+                        "meta/test_size": float(len(test_dataset)),
+                        "meta/steps_per_epoch": float(len(train_loader)),
+                        "meta/total_train_steps": float(total_train_steps),
+                        "meta/warmup_steps": float(warmup_steps),
+                    },
+                    step=0,
+                )
+            else:
+                logger.info("Non-main process detected, skip SwanLab init.")
+
+        # -------------------------
+        # 评估 / checkpoint 状态
+        # -------------------------
+        best_ckpt_dir = os.path.join(cfg.output_dir, "best_checkpoint")
+        last_ckpt_dir = os.path.join(cfg.output_dir, "last_checkpoint")
+
+        best_metric_name = getattr(cfg.eval, "save_best_metric", "accuracy")
+        every_n_steps = getattr(cfg.eval, "every_n_steps", 0)
+        eval_on_epoch_end = getattr(cfg.eval, "eval_on_epoch_end", True)
+
+        state = {
+            "best_metric_value": float("-inf"),
+            "last_eval_step": -1,
+            "last_eval_stage": None,
+        }
+
+        def save_best_checkpoint_if_needed(val_metrics: dict, stage: str, global_step: int, reason: str):
+            if not cfg.logging.save_best:
+                return
+
+            if best_metric_name not in val_metrics:
+                raise KeyError(
+                    f"save_best_metric='{best_metric_name}' not found in validation metrics. "
+                    f"Available keys: {list(val_metrics.keys())}"
+                )
+
+            metric_value = float(val_metrics[best_metric_name])
+            old_best = state["best_metric_value"]
+
+            if metric_value > old_best:
+                state["best_metric_value"] = metric_value
+                os.makedirs(best_ckpt_dir, exist_ok=True)
+                model.save_pretrained(best_ckpt_dir)
+                tokenizer.save_pretrained(best_ckpt_dir)
+
+                logger.info(
+                    "New best checkpoint saved to {} | metric={} | {:.4f} -> {:.4f} | stage={} | step={} | reason={}",
+                    best_ckpt_dir,
+                    best_metric_name,
+                    old_best,
+                    metric_value,
+                    stage,
+                    global_step,
+                    reason,
+                )
+
+                if swanlab_run is not None and is_main_process():
+                    swanlab.log(
+                        {
+                            f"best/{best_metric_name}": metric_value,
+                        },
+                        step=global_step,
+                    )
+
+        def run_validation(stage: str, global_step: int, reason: str):
+            if (
+                reason == "epoch_end"
+                and state["last_eval_step"] == global_step
+                and state["last_eval_stage"] == stage
+            ):
+                logger.info(
+                    "Skip duplicated epoch-end validation at step {} ({})",
+                    global_step,
+                    stage,
+                )
+                return None
+
+            logger.info(
+                "Running validation | stage={} | step={} | reason={}",
+                stage,
+                global_step,
+                reason,
+            )
+
+            was_training = model.training
+            model.eval()
+
+            val_metrics = evaluate(
+                model=model,
+                tokenizer=tokenizer,
+                dataset=val_dataset,
+                device=device,
+                max_new_tokens=cfg.eval.max_new_tokens,
+            )
+
+            if was_training:
+                model.train()
+
+            logger.info(
+                "Validation done | stage={} | step={} | reason={} | {}",
+                stage,
+                global_step,
+                reason,
+                format_eval_metrics(val_metrics),
+            )
+
+            if swanlab_run is not None and is_main_process():
+                val_log = flatten_scalar_metrics(f"val/{stage}", val_metrics)
+                val_log["val/global_step"] = float(global_step)
+                swanlab.log(val_log, step=global_step)
+
+            state["last_eval_step"] = global_step
+            state["last_eval_stage"] = stage
+
+            save_best_checkpoint_if_needed(
+                val_metrics=val_metrics,
+                stage=stage,
+                global_step=global_step,
+                reason=reason,
+            )
+            return val_metrics
+
+        def on_step_end(global_step: int, stage: str, model, tokenizer, train_metrics: dict):
+            # 先记录训练指标
+            if swanlab_run is not None and is_main_process():
+                train_log = flatten_scalar_metrics(f"train/{stage}", train_metrics)
+                train_log["train/global_step"] = float(global_step)
+                if optimizer.param_groups:
+                    train_log["train/lr"] = float(optimizer.param_groups[0]["lr"])
+                swanlab.log(train_log, step=global_step)
+
+            # 再按设定触发验证
+            if every_n_steps is None or every_n_steps <= 0:
+                return
+
+            if global_step % every_n_steps != 0:
+                return
+
+            logger.info(
+                "Step-triggered validation hit | stage={} | global_step={} | train_metrics={}",
+                stage,
+                global_step,
+                train_metrics,
+            )
+
+            run_validation(
+                stage=stage,
+                global_step=global_step,
+                reason="step",
+            )
+
+        # -------------------------
+        # SFT warmup
+        # -------------------------
+        global_step = 0
+
+        if cfg.sft.enabled and cfg.sft.epochs > 0:
+            logger.info("===== SFT Warmup starts: epochs={} =====", cfg.sft.epochs)
+
+            sft_epoch_bar = tqdm(
+                range(cfg.sft.epochs),
+                desc="SFT Warmup",
+                dynamic_ncols=True,
+                leave=True,
+            )
+
+            for epoch in sft_epoch_bar:
+                epoch_id = epoch + 1
+                logger.info("Starting SFT epoch {}/{}", epoch_id, cfg.sft.epochs)
+
+                start_time = time.time()
+                train_metrics = train_sft_epoch(
+                    model=model,
+                    tokenizer=tokenizer,
+                    dataloader=train_loader,
+                    optimizer=optimizer,
+                    scheduler=scheduler,
+                    device=device,
+                    grad_accum_steps=cfg.train.grad_accum_steps,
+                    max_length=cfg.sft.max_length,
+                    global_step=global_step,
+                    on_step_end=on_step_end,
+                )
+                elapsed = time.time() - start_time
+                global_step = train_metrics["global_step"]
+
+                logger.info(
+                    "Finished SFT epoch {}/{} | loss={:.4f} | global_step={} | time={:.2f}s",
+                    epoch_id,
+                    cfg.sft.epochs,
+                    train_metrics["loss"],
+                    global_step,
+                    elapsed,
+                )
+
+                if swanlab_run is not None and is_main_process():
+                    swanlab.log(
+                        {
+                            "epoch/sft": float(epoch_id),
+                            "epoch/sft_loss": float(train_metrics["loss"]),
+                            "epoch/sft_time_sec": float(elapsed),
+                        },
+                        step=global_step,
+                    )
+
+                val_metrics = None
+                if eval_on_epoch_end:
+                    val_metrics = run_validation(
+                        stage="sft",
+                        global_step=global_step,
+                        reason="epoch_end",
+                    )
+
+                postfix = {
+                    "loss": f"{train_metrics['loss']:.4f}",
+                    "gs": global_step,
+                }
+                if val_metrics is not None:
+                    postfix["val_acc"] = f"{val_metrics['accuracy']:.4f}"
+                    postfix["val_f1"] = f"{val_metrics['macro_f1']:.4f}"
+
+                sft_epoch_bar.set_postfix(postfix)
+
+        else:
+            logger.info("SFT warmup disabled.")
+
+        # -------------------------
+        # GRPO 训练
+        # -------------------------
+        ref_model = None
+        if cfg.grpo.enabled and cfg.grpo.use_ref_model and cfg.grpo.kl_beta > 0.0:
+            logger.info("Loading reference model for KL regularization...")
+            ref_model = AutoModelForCausalLM.from_pretrained(
+                cfg.model.name_or_path,
+                trust_remote_code=cfg.model.trust_remote_code,
+                torch_dtype=torch_dtype,
+            ).to(device)
+            ref_model.eval()
+            for p in ref_model.parameters():
+                p.requires_grad = False
+            logger.info("Reference model loaded and frozen.")
+        else:
+            logger.info("Reference model disabled.")
+
+        reward_fn = build_reward_fn(cfg.reward)
+
+        if cfg.grpo.enabled and cfg.grpo.epochs > 0:
+            logger.info("===== GRPO Training starts: epochs={} =====", cfg.grpo.epochs)
+
+            grpo_epoch_bar = tqdm(
+                range(cfg.grpo.epochs),
+                desc="GRPO Training",
+                dynamic_ncols=True,
+                leave=True,
+            )
+
+            for epoch in grpo_epoch_bar:
+                epoch_id = epoch + 1
+                logger.info("Starting GRPO epoch {}/{}", epoch_id, cfg.grpo.epochs)
+
+                start_time = time.time()
+                train_metrics = train_grpo_epoch(
+                    model=model,
+                    reward_fn=reward_fn,
+                    prompt_fn=prompt_fn,
+                    ref_model=ref_model,
+                    tokenizer=tokenizer,
+                    dataloader=train_loader,
+                    optimizer=optimizer,
+                    scheduler=scheduler,
+                    device=device,
+                    group_size=cfg.grpo.group_size,
+                    max_new_tokens=cfg.grpo.max_new_tokens,
+                    temperature=cfg.grpo.temperature,
+                    top_p=cfg.grpo.top_p,
+                    clip_eps=cfg.grpo.clip_eps,
+                    kl_beta=cfg.grpo.kl_beta,
+                    num_update_epochs=cfg.grpo.num_update_epochs,
+                    global_step=global_step,
+                    on_step_end=on_step_end,
+                )
+                elapsed = time.time() - start_time
+                global_step = train_metrics["global_step"]
+
+                logger.info(
+                    "Finished GRPO epoch {}/{} | loss={:.4f} | reward={:.4f} | global_step={} | time={:.2f}s",
+                    epoch_id,
+                    cfg.grpo.epochs,
+                    train_metrics["loss"],
+                    train_metrics["reward"],
+                    global_step,
+                    elapsed,
+                )
+
+                if swanlab_run is not None and is_main_process():
+                    swanlab.log(
+                        {
+                            "epoch/grpo": float(epoch_id),
+                            "epoch/grpo_loss": float(train_metrics["loss"]),
+                            "epoch/grpo_reward": float(train_metrics["reward"]),
+                            "epoch/grpo_time_sec": float(elapsed),
+                        },
+                        step=global_step,
+                    )
+
+                val_metrics = None
+                if eval_on_epoch_end:
+                    val_metrics = run_validation(
+                        stage="grpo",
+                        global_step=global_step,
+                        reason="epoch_end",
+                    )
+
+                postfix = {
+                    "loss": f"{train_metrics['loss']:.4f}",
+                    "reward": f"{train_metrics['reward']:.4f}",
+                    "gs": global_step,
+                }
+                if val_metrics is not None:
+                    postfix["val_acc"] = f"{val_metrics['accuracy']:.4f}"
+                    postfix["val_f1"] = f"{val_metrics['macro_f1']:.4f}"
+
+                grpo_epoch_bar.set_postfix(postfix)
+
+        else:
+            logger.info("GRPO training disabled.")
+
+        # -------------------------
+        # 保存最后一个 checkpoint
+        # -------------------------
+        if cfg.logging.save_last:
+            os.makedirs(last_ckpt_dir, exist_ok=True)
+            model.save_pretrained(last_ckpt_dir)
+            tokenizer.save_pretrained(last_ckpt_dir)
+            logger.info("Saved last checkpoint to {}", last_ckpt_dir)
+
+        # -------------------------
+        # Final Test
+        # -------------------------
+        logger.info("===== Final Test starts =====")
+        eval_model = model
+
+        if cfg.logging.save_best and os.path.exists(best_ckpt_dir):
+            logger.info("Loading best checkpoint for final test from {}", best_ckpt_dir)
+            eval_model = AutoModelForCausalLM.from_pretrained(
+                best_ckpt_dir,
+                trust_remote_code=cfg.model.trust_remote_code,
+                torch_dtype=torch_dtype,
+            ).to(device)
+
+        test_metrics = evaluate(
+            model=eval_model,
+            tokenizer=tokenizer,
+            dataset=test_dataset,
+            device=device,
+            max_new_tokens=cfg.eval.max_new_tokens,
+        )
+
+        logger.info(
+            "Final test summary | acc={:.4f}, macro_p={:.4f}, macro_r={:.4f}, macro_f1={:.4f}, "
+            "weighted_p={:.4f}, weighted_r={:.4f}, weighted_f1={:.4f}, invalid_pred_rate={:.4f}",
+            test_metrics["accuracy"],
+            test_metrics["macro_precision"],
+            test_metrics["macro_recall"],
+            test_metrics["macro_f1"],
+            test_metrics["weighted_precision"],
+            test_metrics["weighted_recall"],
+            test_metrics["weighted_f1"],
+            test_metrics["invalid_pred_rate"],
+        )
+
+        logger.info("Per-class metrics:")
+        for label_name, m in test_metrics["per_class"].items():
+            logger.info(
+                "{} | P={:.4f} R={:.4f} F1={:.4f} Support={}",
+                f"{label_name:>12}",
+                m["precision"],
+                m["recall"],
+                m["f1"],
+                m["support"],
+            )
+
+        if swanlab_run is not None and is_main_process():
+            swanlab.log(flatten_scalar_metrics("test", test_metrics), step=global_step)
+            for label_name, m in test_metrics.get("per_class", {}).items():
+                swanlab.log(
+                    {
+                        f"test/per_class/{label_name}/precision": float(m["precision"]),
+                        f"test/per_class/{label_name}/recall": float(m["recall"]),
+                        f"test/per_class/{label_name}/f1": float(m["f1"]),
+                        f"test/per_class/{label_name}/support": float(m["support"]),
+                    },
+                    step=global_step,
+                )
+
+    finally:
+        if swanlab_run is not None and is_main_process():
+            try:
+                swanlab.finish()
+                logger.info("SwanLab finished.")
+            except Exception as e:
+                print(f"[WARN] swanlab.finish() failed: {e}")
 
 if __name__ == "__main__":
     main()
