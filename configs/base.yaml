@@ -82,6 +82,6 @@ logging:
   save_last: true
   save_resolved_config: true
   print_config: true
-  log_level: INFO
+  level: INFO
 
 experimental: {}
