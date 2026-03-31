@@ -202,12 +202,12 @@ def main():
 
     grad_accum_steps = max(1, cfg.train.grad_accum_steps)
 
-    sft_steps_per_epoch = math.ceil(len(train_loader) / grad_accum_steps)
-    sft_train_steps = sft_steps_per_epoch * sft_epochs
-
     sft_epochs = cfg.sft.epochs if cfg.sft.enabled else 0
     grpo_epochs = cfg.grpo.epochs if cfg.grpo.enabled else 0
     grpo_inner_updates = cfg.grpo.num_update_epochs if cfg.grpo.enabled else 0
+
+    sft_steps_per_epoch = math.ceil(len(train_loader) / grad_accum_steps)
+    sft_train_steps = sft_steps_per_epoch * sft_epochs
 
     grpo_train_steps = len(train_loader) * grpo_epochs * max(1, grpo_inner_updates)
     total_train_steps = max(1, sft_train_steps + grpo_train_steps)
