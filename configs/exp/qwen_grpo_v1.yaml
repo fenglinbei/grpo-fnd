@@ -18,7 +18,7 @@ optimizer:
 sft:
   enabled: true
   epochs: 1
-  max_length: 256
+  max_length: 256 # 直接截断，不使用 sliding window
 
 grpo:
   enabled: true
