@@ -109,7 +109,7 @@ class VeracityJsonDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def __getitem__(self, idx: int) -> Dict[str, Any]:
+    def __getitem__(self, idx: int) -> Sample:
         item = self.data[idx]
         return item
 
