@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 from pydantic import BaseModel, Field
 
 
@@ -87,6 +87,17 @@ class TrainConfig(StrictBaseModel):
 class EvalConfig(StrictBaseModel):
     max_new_tokens: int = 128
     do_sample: bool = False
+    every_n_steps: int = 0
+    eval_on_epoch_end: bool = True
+    save_best_metric: Literal[
+        "accuracy",
+        "macro_precision",
+        "macro_recall",
+        "macro_f1",
+        "weighted_precision",
+        "weighted_recall",
+        "weighted_f1",
+    ] = "macro_f1"
 
 
 class LoggingConfig(StrictBaseModel):

@@ -1,10 +1,12 @@
 import torch
 from tqdm import tqdm
+
 from src.rl.rollout import rollout_group
 from src.reward.advantage import compute_group_advantages
 from src.modeling.logprob import gather_token_logprobs
 from src.rl.grpo_loss import grpo_loss
 from src.rl.masks import build_generation_mask
+
 
 def train_grpo_epoch(
     model,
@@ -23,13 +25,16 @@ def train_grpo_epoch(
     clip_eps: float,
     kl_beta: float,
     num_update_epochs: int,
+    global_step: int = 0,
+    on_step_end=None,
 ):
     model.train()
     total_loss = 0.0
     total_reward = 0.0
-    total_steps = 0
+    total_batches = 0
+    total_optimizer_updates = 0
 
-    pbar = tqdm(dataloader, desc="GRPO")
+    pbar = tqdm(dataloader, desc="GRPO", dynamic_ncols=True)
     for batch_samples in pbar:
         batch_size = len(batch_samples)
 
@@ -51,6 +56,7 @@ def train_grpo_epoch(
             )
 
             old_logprobs = gather_token_logprobs(model, seq_batch, attn_batch)
+
             if ref_model is not None and kl_beta > 0.0:
                 ref_logprobs = gather_token_logprobs(ref_model, seq_batch, attn_batch)
             else:
@@ -59,7 +65,12 @@ def train_grpo_epoch(
         # -------------------------
         # B. rewards / advantages
         # -------------------------
-        rewards = torch.zeros((batch_size, group_size), dtype=torch.float32, device=device)
+        rewards = torch.zeros(
+            (batch_size, group_size),
+            dtype=torch.float32,
+            device=device,
+        )
+
         idx = 0
         for b in range(batch_size):
             for g in range(group_size):
@@ -67,16 +78,18 @@ def train_grpo_epoch(
                 idx += 1
 
         advantages = compute_group_advantages(rewards)  # [B, G]
-
         flat_advantages = advantages.reshape(-1)        # [N]
         gen_mask = build_generation_mask(attn_batch, prompt_lens)  # [N, T-1]
+
+        step_reward = float(rewards.mean().item())
 
         # -------------------------
         # C. 多轮更新当前 policy
         # -------------------------
         model.train()
         last_loss = None
-        for _ in range(num_update_epochs):
+
+        for inner_update_idx in range(num_update_epochs):
             current_logprobs = gather_token_logprobs(model, seq_batch, attn_batch)
 
             loss = grpo_loss(
@@ -96,21 +109,44 @@ def train_grpo_epoch(
             if scheduler is not None:
                 scheduler.step()
 
-            last_loss = loss
+            global_step += 1
+            total_optimizer_updates += 1
+            last_loss = loss.detach()
 
-        step_reward = rewards.mean().item()
+            if on_step_end is not None:
+                on_step_end(
+                    global_step=global_step,
+                    stage="grpo",
+                    model=model,
+                    tokenizer=tokenizer,
+                    train_metrics={
+                        "loss": float(last_loss.item()),
+                        "reward": step_reward,
+                        "inner_update": inner_update_idx + 1,
+                        "num_update_epochs": num_update_epochs,
+                    },
+                )
+                # callback 里可能会切到 eval，这里显式切回 train
+                model.train()
+
         step_loss = float(last_loss.item()) if last_loss is not None else 0.0
 
         total_loss += step_loss
         total_reward += step_reward
-        total_steps += 1
+        total_batches += 1
 
-        pbar.set_postfix({
-            "loss": f"{step_loss:.4f}",
-            "reward": f"{step_reward:.4f}",
-        })
+        pbar.set_postfix(
+            {
+                "loss": f"{step_loss:.4f}",
+                "reward": f"{step_reward:.4f}",
+                "gs": global_step,
+            }
+        )
 
     return {
-        "loss": total_loss / max(1, total_steps),
-        "reward": total_reward / max(1, total_steps),
+        "loss": total_loss / max(1, total_batches),
+        "reward": total_reward / max(1, total_batches),
+        "global_step": global_step,
+        "num_batches": total_batches,
+        "num_optimizer_updates": total_optimizer_updates,
     }

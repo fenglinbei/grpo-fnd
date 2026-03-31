@@ -16,7 +16,7 @@ optimizer:
   lr: 5.0e-6
 
 sft:
-  enabled: false
+  enabled: true
   epochs: 1
 
 grpo:
@@ -27,10 +27,13 @@ grpo:
   clip_eps: 0.2
   kl_beta: 0.0
   use_ref_model: false
-  max_new_tokens: 160
+  max_new_tokens: 256
 
 train:
   batch_size: 2
+
+eval:
+  every_n_steps: 50
 
 reward:
   label_correct: 1.0

@@ -38,7 +38,6 @@ def setup_logger(output_dir: str, log_filename: str = "train.log"):
 
     logger.remove()
 
-    # 控制台日志
     logger.add(
         sys.stderr,
         level="INFO",
@@ -51,7 +50,6 @@ def setup_logger(output_dir: str, log_filename: str = "train.log"):
         ),
     )
 
-    # 文件日志
     logger.add(
         os.path.join(output_dir, log_filename),
         level="INFO",
@@ -115,7 +113,10 @@ def main():
         logger.info("Saved resolved config to {}", resolved_path)
 
     if cfg.logging.print_config:
-        logger.info("Resolved config:\n{}", json.dumps(cfg.model_dump(), indent=2, ensure_ascii=False))
+        logger.info(
+            "Resolved config:\n{}",
+            json.dumps(cfg.model_dump(), indent=2, ensure_ascii=False),
+        )
 
     # -------------------------
     # 基础设置
@@ -211,27 +212,149 @@ def main():
     grpo_epochs = cfg.grpo.epochs if cfg.grpo.enabled else 0
     grpo_inner_updates = cfg.grpo.num_update_epochs if cfg.grpo.enabled else 0
 
-    total_train_steps = len(train_loader) * max(
-        1, sft_epochs + grpo_epochs * max(1, grpo_inner_updates)
-    )
+    sft_train_steps = len(train_loader) * sft_epochs
+    grpo_train_steps = len(train_loader) * grpo_epochs * max(1, grpo_inner_updates)
+    total_train_steps = max(1, sft_train_steps + grpo_train_steps)
     warmup_steps = int(total_train_steps * cfg.scheduler.warmup_ratio)
 
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
         num_warmup_steps=warmup_steps,
-        num_training_steps=max(1, total_train_steps),
+        num_training_steps=total_train_steps,
     )
 
     logger.info(
         "Optimizer and scheduler ready: lr={}, warmup_steps={}, total_train_steps={}",
         cfg.optimizer.lr,
         warmup_steps,
-        max(1, total_train_steps),
+        total_train_steps,
     )
+
+    # -------------------------
+    # 评估 / checkpoint 状态
+    # -------------------------
+    best_ckpt_dir = os.path.join(cfg.output_dir, "best_checkpoint")
+    last_ckpt_dir = os.path.join(cfg.output_dir, "last_checkpoint")
+
+    best_metric_name = getattr(cfg.eval, "save_best_metric", "accuracy")
+    every_n_steps = getattr(cfg.eval, "every_n_steps", 0)
+    eval_on_epoch_end = getattr(cfg.eval, "eval_on_epoch_end", True)
+
+    state = {
+        "best_metric_value": float("-inf"),
+        "last_eval_step": -1,
+        "last_eval_stage": None,
+    }
+
+    def save_best_checkpoint_if_needed(val_metrics: dict, stage: str, global_step: int, reason: str):
+        if not cfg.logging.save_best:
+            return
+
+        if best_metric_name not in val_metrics:
+            raise KeyError(
+                f"save_best_metric='{best_metric_name}' not found in validation metrics. "
+                f"Available keys: {list(val_metrics.keys())}"
+            )
+
+        metric_value = float(val_metrics[best_metric_name])
+        old_best = state["best_metric_value"]
+
+        if metric_value > old_best:
+            state["best_metric_value"] = metric_value
+            os.makedirs(best_ckpt_dir, exist_ok=True)
+            model.save_pretrained(best_ckpt_dir)
+            tokenizer.save_pretrained(best_ckpt_dir)
+
+            logger.info(
+                "New best checkpoint saved to {} | metric={} | {:.4f} -> {:.4f} | stage={} | step={} | reason={}",
+                best_ckpt_dir,
+                best_metric_name,
+                old_best,
+                metric_value,
+                stage,
+                global_step,
+                reason,
+            )
+
+    def run_validation(stage: str, global_step: int, reason: str):
+        # 避免 epoch_end 和刚好命中的 step_eval 在同一个 step 重复验证
+        if (
+            reason == "epoch_end"
+            and state["last_eval_step"] == global_step
+            and state["last_eval_stage"] == stage
+        ):
+            logger.info(
+                "Skip duplicated epoch-end validation at step {} ({})",
+                global_step,
+                stage,
+            )
+            return None
+
+        logger.info(
+            "Running validation | stage={} | step={} | reason={}",
+            stage,
+            global_step,
+            reason,
+        )
+
+        was_training = model.training
+        model.eval()
+
+        val_metrics = evaluate(
+            model=model,
+            tokenizer=tokenizer,
+            dataset=val_dataset,
+            device=device,
+            max_new_tokens=cfg.eval.max_new_tokens,
+        )
+
+        if was_training:
+            model.train()
+
+        logger.info(
+            "Validation done | stage={} | step={} | reason={} | {}",
+            stage,
+            global_step,
+            reason,
+            format_eval_metrics(val_metrics),
+        )
+
+        state["last_eval_step"] = global_step
+        state["last_eval_stage"] = stage
+
+        save_best_checkpoint_if_needed(
+            val_metrics=val_metrics,
+            stage=stage,
+            global_step=global_step,
+            reason=reason,
+        )
+        return val_metrics
+
+    def on_step_end(global_step: int, stage: str, model, tokenizer, train_metrics: dict):
+        if every_n_steps is None or every_n_steps <= 0:
+            return
+
+        if global_step % every_n_steps != 0:
+            return
+
+        logger.info(
+            "Step-triggered validation hit | stage={} | global_step={} | train_metrics={}",
+            stage,
+            global_step,
+            train_metrics,
+        )
+
+        run_validation(
+            stage=stage,
+            global_step=global_step,
+            reason="step",
+        )
 
     # -------------------------
     # SFT warmup
     # -------------------------
+    global_step = 0
+
     if cfg.sft.enabled and cfg.sft.epochs > 0:
         logger.info("===== SFT Warmup starts: epochs={} =====", cfg.sft.epochs)
 
@@ -247,41 +370,45 @@ def main():
             logger.info("Starting SFT epoch {}/{}", epoch_id, cfg.sft.epochs)
 
             start_time = time.time()
-            sft_loss = train_sft_epoch(
+            train_metrics = train_sft_epoch(
                 model=model,
                 tokenizer=tokenizer,
                 dataloader=train_loader,
                 optimizer=optimizer,
                 scheduler=scheduler,
                 device=device,
+                global_step=global_step,
+                on_step_end=on_step_end,
             )
             elapsed = time.time() - start_time
+            global_step = train_metrics["global_step"]
 
             logger.info(
-                "Finished SFT epoch {}/{} | loss={:.4f} | time={:.2f}s",
+                "Finished SFT epoch {}/{} | loss={:.4f} | global_step={} | time={:.2f}s",
                 epoch_id,
                 cfg.sft.epochs,
-                sft_loss,
+                train_metrics["loss"],
+                global_step,
                 elapsed,
             )
 
-            logger.info("Running validation after SFT epoch {}/{}...", epoch_id, cfg.sft.epochs)
-            val_metrics = evaluate(
-                model=model,
-                tokenizer=tokenizer,
-                dataset=val_dataset,
-                device=device,
-                max_new_tokens=cfg.eval.max_new_tokens,
-            )
+            val_metrics = None
+            if eval_on_epoch_end:
+                val_metrics = run_validation(
+                    stage="sft",
+                    global_step=global_step,
+                    reason="epoch_end",
+                )
 
-            metric_str = format_eval_metrics(val_metrics)
-            logger.info("SFT epoch {}/{} validation: {}", epoch_id, cfg.sft.epochs, metric_str)
+            postfix = {
+                "loss": f"{train_metrics['loss']:.4f}",
+                "gs": global_step,
+            }
+            if val_metrics is not None:
+                postfix["val_acc"] = f"{val_metrics['accuracy']:.4f}"
+                postfix["val_f1"] = f"{val_metrics['macro_f1']:.4f}"
 
-            sft_epoch_bar.set_postfix(
-                loss=f"{sft_loss:.4f}",
-                val_acc=f"{val_metrics['accuracy']:.4f}",
-                val_f1=f"{val_metrics['macro_f1']:.4f}",
-            )
+            sft_epoch_bar.set_postfix(postfix)
 
     else:
         logger.info("SFT warmup disabled.")
@@ -289,9 +416,6 @@ def main():
     # -------------------------
     # GRPO 训练
     # -------------------------
-    best_val_acc = -1.0
-    best_ckpt_dir = os.path.join(cfg.output_dir, "best_checkpoint")
-    last_ckpt_dir = os.path.join(cfg.output_dir, "last_checkpoint")
     reward_fn = build_reward_fn(cfg.reward)
 
     if cfg.grpo.enabled and cfg.grpo.epochs > 0:
@@ -326,55 +450,41 @@ def main():
                 clip_eps=cfg.grpo.clip_eps,
                 kl_beta=cfg.grpo.kl_beta,
                 num_update_epochs=cfg.grpo.num_update_epochs,
+                global_step=global_step,
+                on_step_end=on_step_end,
             )
             elapsed = time.time() - start_time
+            global_step = train_metrics["global_step"]
 
             logger.info(
-                "Finished GRPO epoch {}/{} | loss={:.4f} | reward={:.4f} | time={:.2f}s",
+                "Finished GRPO epoch {}/{} | loss={:.4f} | reward={:.4f} | global_step={} | time={:.2f}s",
                 epoch_id,
                 cfg.grpo.epochs,
                 train_metrics["loss"],
                 train_metrics["reward"],
+                global_step,
                 elapsed,
             )
 
-            logger.info("Running validation after GRPO epoch {}/{}...", epoch_id, cfg.grpo.epochs)
-            val_metrics = evaluate(
-                model=model,
-                tokenizer=tokenizer,
-                dataset=val_dataset,
-                device=device,
-                max_new_tokens=cfg.eval.max_new_tokens,
-            )
-
-            logger.info(
-                "GRPO epoch {}/{} validation: {}",
-                epoch_id,
-                cfg.grpo.epochs,
-                format_eval_metrics(val_metrics),
-            )
-
-            grpo_epoch_bar.set_postfix(
-                loss=f"{train_metrics['loss']:.4f}",
-                reward=f"{train_metrics['reward']:.4f}",
-                val_acc=f"{val_metrics['accuracy']:.4f}",
-                val_f1=f"{val_metrics['macro_f1']:.4f}",
-            )
-
-            if cfg.logging.save_best and val_metrics["accuracy"] > best_val_acc:
-                old_best = best_val_acc
-                best_val_acc = val_metrics["accuracy"]
-
-                os.makedirs(best_ckpt_dir, exist_ok=True)
-                model.save_pretrained(best_ckpt_dir)
-                tokenizer.save_pretrained(best_ckpt_dir)
-
-                logger.info(
-                    "New best checkpoint saved to {} | val_acc: {:.4f} -> {:.4f}",
-                    best_ckpt_dir,
-                    old_best,
-                    best_val_acc,
+            val_metrics = None
+            if eval_on_epoch_end:
+                val_metrics = run_validation(
+                    stage="grpo",
+                    global_step=global_step,
+                    reason="epoch_end",
                 )
+
+            postfix = {
+                "loss": f"{train_metrics['loss']:.4f}",
+                "reward": f"{train_metrics['reward']:.4f}",
+                "gs": global_step,
+            }
+            if val_metrics is not None:
+                postfix["val_acc"] = f"{val_metrics['accuracy']:.4f}"
+                postfix["val_f1"] = f"{val_metrics['macro_f1']:.4f}"
+
+            grpo_epoch_bar.set_postfix(postfix)
+
     else:
         logger.info("GRPO training disabled.")
 

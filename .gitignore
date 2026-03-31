@@ -209,4 +209,9 @@ __marimo__/
 # Raw Dataset
 data/raw/LIAR-RAW
 data/raw/RAWFC
+
+# models
 models/
+
+# output
+outputs/
