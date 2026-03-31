@@ -14,6 +14,8 @@ model:
   trust_remote_code: false
   use_fast_tokenizer: true
   torch_dtype: auto
+  use_cache: false
+  gradient_checkpointing: true
 
 optimizer:
   name: adamw
@@ -73,7 +75,7 @@ eval:
   every_n_steps: 200      # <= 0 表示关闭 step eval
   eval_on_epoch_end: true
   save_best_metric: macro_f1 
-  
+
 logging:
   output_root: outputs
   save_best: true

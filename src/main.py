@@ -182,20 +182,9 @@ def main():
     ).to(device)
     logger.info("Policy model loaded from {}", cfg.model.name_or_path)
 
-    ref_model = None
-    if cfg.grpo.enabled and cfg.grpo.use_ref_model and cfg.grpo.kl_beta > 0.0:
-        logger.info("Loading reference model for KL regularization...")
-        ref_model = AutoModelForCausalLM.from_pretrained(
-            cfg.model.name_or_path,
-            trust_remote_code=cfg.model.trust_remote_code,
-            torch_dtype=torch_dtype,
-        ).to(device)
-        ref_model.eval()
-        for p in ref_model.parameters():
-            p.requires_grad = False
-        logger.info("Reference model loaded and frozen.")
-    else:
-        logger.info("Reference model disabled.")
+    model.config.use_cache = cfg.model.use_cache
+    if cfg.model.gradient_checkpointing:
+        model.gradient_checkpointing_enable()
 
     # -------------------------
     # optimizer / scheduler
@@ -416,6 +405,21 @@ def main():
     # -------------------------
     # GRPO 训练
     # -------------------------
+    ref_model = None
+    if cfg.grpo.enabled and cfg.grpo.use_ref_model and cfg.grpo.kl_beta > 0.0:
+        logger.info("Loading reference model for KL regularization...")
+        ref_model = AutoModelForCausalLM.from_pretrained(
+            cfg.model.name_or_path,
+            trust_remote_code=cfg.model.trust_remote_code,
+            torch_dtype=torch_dtype,
+        ).to(device)
+        ref_model.eval()
+        for p in ref_model.parameters():
+            p.requires_grad = False
+        logger.info("Reference model loaded and frozen.")
+    else:
+        logger.info("Reference model disabled.")
+
     reward_fn = build_reward_fn(cfg.reward)
 
     if cfg.grpo.enabled and cfg.grpo.epochs > 0:

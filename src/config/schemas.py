@@ -22,6 +22,8 @@ class ModelConfig(StrictBaseModel):
     trust_remote_code: bool = False
     use_fast_tokenizer: bool = True
     torch_dtype: str = "auto"      # auto / float16 / bfloat16 / float32
+    use_cache: bool = False
+    gradient_checkpointing: bool = True
 
 
 class OptimizerConfig(StrictBaseModel):
