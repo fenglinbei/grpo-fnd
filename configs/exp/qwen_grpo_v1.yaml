@@ -20,7 +20,7 @@ sft:
   epochs: 1
   batch_size: 2
   grad_accum_steps: 2
-  max_length: 256
+  max_length: 512
 
 grpo:
   enabled: true
