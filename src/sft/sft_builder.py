@@ -17,8 +17,10 @@ def build_sft_batch(
     label_tensors = []
 
     for sample in batch_samples:
-        prompt = prompt_fn(sample)
+        system_prompt, user_prompt = prompt_fn(sample)
         target = build_sft_target(sample)
+
+        message = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
 
         prompt_ids = tokenizer(
             prompt,

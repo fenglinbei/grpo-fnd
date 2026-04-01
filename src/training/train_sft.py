@@ -1,8 +1,6 @@
 import torch
 from tqdm import tqdm
 
-from src.sft.sft_builder import build_sft_batch
-
 
 def train_sft_epoch(
     model,
@@ -27,13 +25,8 @@ def train_sft_epoch(
     pbar = tqdm(dataloader, desc="SFT", dynamic_ncols=True)
 
     for micro_step, batch_samples in enumerate(pbar, start=1):
-        input_ids, attention_mask, labels = build_sft_batch(
-            tokenizer=tokenizer,
-            prompt_fn=prompt_fn,
-            batch_samples=batch_samples,
-            device=device,
-            max_length=max_length,
-        )
+        print(batch_samples)
+        input_ids, attention_mask, labels = batch_samples
 
         outputs = model(
             input_ids=input_ids,
