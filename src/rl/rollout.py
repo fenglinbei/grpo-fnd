@@ -1,6 +1,7 @@
 import torch
 
 from typing import List, Dict, Any
+from loguru import logger
 from src.rl.masks import pad_1d_tensors
 
 @torch.no_grad()
@@ -27,6 +28,9 @@ def rollout_group(
     all_seqs = []
     prompt_lens = []
     flat_texts = []
+
+    logger.debug(f"Rolling out group of {len(batch_samples)} samples with group size {group_size}...")
+    logger.debug(f"batch_samples: {batch_samples}")
 
     for sample in batch_samples:
         prompt = prompt_fn(sample)
