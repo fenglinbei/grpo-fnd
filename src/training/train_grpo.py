@@ -70,7 +70,7 @@ def train_grpo_epoch(
         idx = 0
         for b in range(batch_size):
             for g in range(group_size):
-                rewards[b, g] = reward_fn(flat_texts[idx], batch_samples["sample"][b], tokenizer)
+                rewards[b, g] = reward_fn(flat_texts[idx], batch_samples["sample"][b], tokenizer)["reward"]
                 idx += 1
 
         advantages = compute_group_advantages(rewards)
