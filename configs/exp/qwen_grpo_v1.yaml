@@ -35,7 +35,7 @@ grpo:
   max_new_tokens: 256
 
 eval:
-  every_n_steps: 500
+  every_n_steps: 100
   max_new_tokens: 256
 
 reward:
