@@ -76,6 +76,7 @@ class GRPOConfig(StrictBaseModel):
     enabled: bool = True
     epochs: int = 1
     grad_accum_steps: int = 1
+    batch_size: int = 4
     group_size: int = 4
     num_update_epochs: int = 2
     clip_eps: float = 0.2
