@@ -32,6 +32,7 @@ def rollout_group(
     for i in range(len(batch_samples["sample_ids"])):
         input_ids = batch_samples["input_ids"][i].to(device)
         attention_mask = batch_samples["attention_mask"][i].to(device)
+        logger.debug(f"input_ids shape: {input_ids.shape}, attention_mask shape: {attention_mask.shape}")
         prompt_len = len(input_ids)
 
         # 对单个 prompt 一次性采样 group_size 个输出
