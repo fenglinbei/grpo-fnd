@@ -21,9 +21,11 @@ class GRPODataset(Dataset):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        return encode_grpo_prompt(
+        data = encode_grpo_prompt(
             self.samples[idx],
             tokenizer=self.tokenizer,
             prompt_fn=self.prompt_fn,
             max_prompt_length=self.max_prompt_length,
         )
+        data["sample"] = self.samples[idx]  # 直接把原始 Sample 对象也放在这里，后续 reward_fn 评估时会用到
+        return data
