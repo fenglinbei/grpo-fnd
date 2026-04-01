@@ -37,7 +37,6 @@ def train_grpo_epoch(
 
     pbar = tqdm(dataloader, desc="GRPO", dynamic_ncols=True)
     for batch_samples in pbar:
-        logger.debug(f"Batch sample: {batch_samples}")
         batch_size = len(batch_samples["sample_ids"])
         # A. rollout（old policy）
         model.eval()
