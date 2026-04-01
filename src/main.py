@@ -313,7 +313,7 @@ def main():
             weight_decay=cfg.optimizer.weight_decay,
         )
 
-        grad_accum_steps = max(1, cfg.train.grad_accum_steps)
+        grad_accum_steps = max(1, cfg.sft.grad_accum_steps)
 
         sft_epochs = cfg.sft.epochs if cfg.sft.enabled else 0
         grpo_epochs = cfg.grpo.epochs if cfg.grpo.enabled else 0
