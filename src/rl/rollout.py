@@ -29,13 +29,10 @@ def rollout_group(
     prompt_lens = []
     flat_texts = []
 
-    logger.debug(f"Rolling out group of {len(batch_samples)} samples with group size {group_size}...")
-    logger.debug(f"batch_samples: {batch_samples}")
-
     for i in range(len(batch_samples["sample_ids"])):
         input_ids = batch_samples["input_ids"][i].to(device)
         attention_mask = batch_samples["attention_mask"][i].to(device)
-        prompt_len = int(input_ids.size(1))
+        prompt_len = len(input_ids)
 
         # 对单个 prompt 一次性采样 group_size 个输出
         outputs = model.generate(
