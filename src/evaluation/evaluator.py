@@ -61,7 +61,7 @@ def evaluate(
     max_new_tokens: int = 64,
     batch_size: int = 8,
     quick_eval: bool = False,
-    quick_eval_samples: int = 64,
+    quick_eval_samples: int = 128,
     quick_eval_mode: str = "random",
     show_results: bool = False,
     show_results_num: int = 5,
