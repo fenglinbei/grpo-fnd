@@ -1,14 +1,15 @@
 import torch
 from typing import List, Dict, Any
 
-from src.prompting.prompt_builder import build_prompt
+from src.datasets.schemas import Sample
 from src.prompting.target_builder import build_sft_target
 from src.rl.masks import pad_1d_tensors
 
 
 def build_sft_batch(
     tokenizer,
-    batch_samples: List[Dict[str, Any]],
+    prompt_fn,
+    batch_samples: List[Sample],
     device: torch.device,
     max_length: int | None = None,
 ):
@@ -16,7 +17,7 @@ def build_sft_batch(
     label_tensors = []
 
     for sample in batch_samples:
-        prompt = build_prompt(sample)
+        prompt = prompt_fn(sample)
         target = build_sft_target(sample)
 
         prompt_ids = tokenizer(

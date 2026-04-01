@@ -58,6 +58,7 @@ class RewardConfig(StrictBaseModel):
     name: str = "basic_veracity_reward"
     label_correct: float = 1.0
     format_correct: float = 0.2
+    explanation_length: float = 0.8
     explanation_overlap: float = 0.2
     invalid_output_penalty: float = -0.2
     extras: Dict[str, Any] = Field(default_factory=dict)
@@ -79,6 +80,7 @@ class GRPOConfig(StrictBaseModel):
     temperature: float = 1.0
     top_p: float = 0.95
     max_new_tokens: int = 128
+    max_prompt_length: int = 512
     use_ref_model: bool = False
     extras: Dict[str, Any] = Field(default_factory=dict)
 

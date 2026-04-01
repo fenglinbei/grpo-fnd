@@ -3,8 +3,9 @@ import sys
 import json
 from pathlib import Path
 from transformers import AutoTokenizer
+from transformers.models.qwen2.tokenization_qwen2 import Qwen2Tokenizer
 
-from src.prompts import build_default_veracity_prompt as prompt_fn
+from prompting.prompts import build_default_veracity_prompt as prompt_fn
 from src.datasets.json_dataset import VeracityJsonDataset, load_dataset
 from src.config.loader import load_config
 
@@ -46,5 +47,27 @@ def check_prompt_lengths():
     print(f"Sample ID with maximum length: {max_lan_id}")
     print(f"Average prompt length: {total_len / prompt_count if prompt_count > 0 else 0}")
 
+def check_prompt():
+    import random
+    tokenizer: Qwen2Tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME_OR_PATH)
+    for split in DATA_SPLITS:
+        print(f"Checking {split} set...")
+        split_dataset = _load_dataset(split)
+        sample = random.choice(split_dataset)
+        system_prompt, user_prompt = prompt_fn(sample, cfg.prompt)
+        messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+        full_prompt = tokenizer.apply_chat_template(
+            messages,
+            tokenize=True,
+            add_generation_prompt=True,
+            enable_thinking=False
+        )
+
+        print("Prompt:")
+        print(full_prompt)
+        input_ids = tokenizer(full_prompt, truncation=False, add_special_tokens=False)["input_ids"]
+        print(f"Tokenized length: {len(input_ids)} tokens")
+
 if __name__ == "__main__":
-    check_prompt_lengths()
+    # check_prompt_lengths()
+    check_prompt()

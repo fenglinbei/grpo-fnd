@@ -1,12 +1,12 @@
 import torch
 from tqdm import tqdm
-from torch.utils.data import Dataset
+from src.datasets.json_dataset import VeracityJsonDataset
 from src.evaluation.predictor import predict_label
 from src.evaluation.metrics import compute_classification_metrics
 from src.datasets.schemas import LABEL2ID, ID2LABEL, Sample
 
 @torch.no_grad()
-def evaluate(model, tokenizer, dataset: Dataset, device: torch.device, max_new_tokens: int = 128):
+def evaluate(model, tokenizer, dataset: VeracityJsonDataset, device: torch.device, max_new_tokens: int = 128):
     model.eval()
 
     pred_ids = []

@@ -7,6 +7,7 @@ from src.sft.sft_builder import build_sft_batch
 def train_sft_epoch(
     model,
     tokenizer,
+    prompt_fn,
     dataloader,
     optimizer,
     scheduler,
@@ -28,6 +29,7 @@ def train_sft_epoch(
     for micro_step, batch_samples in enumerate(pbar, start=1):
         input_ids, attention_mask, labels = build_sft_batch(
             tokenizer=tokenizer,
+            prompt_fn=prompt_fn,
             batch_samples=batch_samples,
             device=device,
             max_length=max_length,

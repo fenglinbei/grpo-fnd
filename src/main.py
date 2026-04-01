@@ -10,7 +10,7 @@ import swanlab
 import torch
 from loguru import logger
 from tqdm.auto import tqdm
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
@@ -21,12 +21,15 @@ from src.config.schemas import ExperimentConfig
 from src.config.loader import load_config, save_resolved_config
 from src.config.registry import build_prompt_fn, build_reward_fn
 from src.datasets.json_dataset import VeracityJsonDataset
-from src.datasets.collators.base import basic_collate_fn
+from src.datasets.sft_datasets import SFTDataset
+from src.datasets.grpo_datasets import GRPODataset
+from src.datasets.collators.sft import SFTCollator
+from src.datasets.collators.grpo import GRPOPromptCollator
 from src.training.train_sft import train_sft_epoch
 from src.training.train_grpo import train_grpo_epoch
 from src.evaluation.evaluator import evaluate
 
-import src.prompts
+import src.prompting.prompts
 import src.reward.reward_fn
 
 
@@ -631,35 +634,6 @@ def main():
         logger.info("Torch dtype: {}", cfg.model.torch_dtype)
 
         # -------------------------
-        # 数据
-        # -------------------------
-        logger.info("Loading datasets...")
-        train_dataset = VeracityJsonDataset(cfg.data.train_path)
-        val_dataset = VeracityJsonDataset(cfg.data.val_path)
-        test_dataset = VeracityJsonDataset(cfg.data.test_path)
-        prompt_fn = build_prompt_fn(cfg.prompt)
-
-        logger.info(
-            "Datasets loaded: train={}, val={}, test={}",
-            len(train_dataset),
-            len(val_dataset),
-            len(test_dataset),
-        )
-
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=batch_size,
-            shuffle=True,
-            num_workers=cfg.data.num_workers,
-            collate_fn=basic_collate_fn,
-        )
-        logger.info(
-            "Train DataLoader ready: steps_per_epoch={}, num_workers={}",
-            len(train_loader),
-            cfg.data.num_workers,
-        )
-
-        # -------------------------
         # tokenizer / model
         # -------------------------
         logger.info("Loading tokenizer and model...")
@@ -676,7 +650,7 @@ def main():
         model = AutoModelForCausalLM.from_pretrained(
             cfg.model.name_or_path,
             trust_remote_code=cfg.model.trust_remote_code,
-            torch_dtype=torch_dtype,   # 这里顺手修正
+            torch_dtype=torch_dtype,
         ).to(device)
         logger.info("Policy model loaded from {}", cfg.model.name_or_path)
         logger.debug("Model dtype: {}", model.dtype)
@@ -684,6 +658,112 @@ def main():
         model.config.use_cache = cfg.model.use_cache
         if cfg.model.gradient_checkpointing:
             model.gradient_checkpointing_enable()
+
+        # -------------------------
+        # 数据
+        # -------------------------
+        base_train_dataset = VeracityJsonDataset(cfg.data.train_path)
+        base_val_dataset = VeracityJsonDataset(cfg.data.val_path)
+        base_test_dataset = VeracityJsonDataset(cfg.data.test_path)
+        
+        prompt_fn = build_prompt_fn(cfg.prompt)
+
+        sft_train_loader = None
+        if cfg.sft.enabled and cfg.sft.epochs > 0:
+            logger.info("Loading SFT dataset and dataloader...")
+
+            sft_train_dataset = SFTDataset(tokenizer, cfg.data.train_path, prompt_fn, max_length=cfg.sft.max_length)
+            sft_val_dataset = SFTDataset(tokenizer, cfg.data.val_path, prompt_fn, max_length=cfg.sft.max_length)
+            sft_test_dataset = SFTDataset(tokenizer, cfg.data.test_path, prompt_fn, max_length=cfg.sft.max_length)
+
+            logger.info(
+                "Datasets loaded: train={}, val={}, test={}",
+                len(sft_train_dataset),
+                len(sft_val_dataset),
+                len(sft_test_dataset),
+            )
+
+            sft_collate_fn = SFTCollator(tokenizer)
+
+            sft_train_loader = DataLoader(
+                sft_train_dataset,
+                batch_size=batch_size,
+                shuffle=True,
+                num_workers=cfg.data.num_workers,
+                collate_fn=sft_collate_fn,
+            )
+
+            # sft_val_loader = DataLoader(
+            #     sft_val_dataset,
+            #     batch_size=batch_size,
+            #     shuffle=False,
+            #     num_workers=cfg.data.num_workers,
+            #     collate_fn=sft_collate_fn,
+            # )
+
+            # sft_test_loader = DataLoader(
+            #     sft_test_dataset,
+            #     batch_size=batch_size,
+            #     shuffle=False,
+            #     num_workers=cfg.data.num_workers,
+            #     collate_fn=sft_collate_fn,
+            # )
+
+            logger.info(
+                "SFT Train DataLoader ready: steps_per_epoch={}, num_workers={}",
+                len(sft_train_loader),
+                cfg.data.num_workers,
+            )
+        else:
+            logger.info("SFT warmup disabled, skip SFT dataset and dataloader.")
+
+        grpo_train_loader = None
+        if cfg.grpo.enabled and cfg.grpo.epochs > 0:
+            logger.info("Loading GRPO dataset and dataloader...")
+
+            grpo_train_dataset = GRPODataset(tokenizer, cfg.data.train_path, prompt_fn, max_prompt_length=cfg.grpo.max_prompt_length)
+            grpo_val_dataset = GRPODataset(tokenizer, cfg.data.val_path, prompt_fn, max_prompt_length=cfg.grpo.max_prompt_length)
+            grpo_test_dataset = GRPODataset(tokenizer, cfg.data.test_path, prompt_fn, max_prompt_length=cfg.grpo.max_prompt_length)
+
+            logger.info(
+                "Datasets loaded: train={}, val={}, test={}",
+                len(grpo_train_dataset),
+                len(grpo_val_dataset),
+                len(grpo_test_dataset),
+            )
+
+            grpo_collate_fn = GRPOPromptCollator(tokenizer)
+
+            grpo_train_loader = DataLoader(
+                grpo_train_dataset,
+                batch_size=cfg.grpo.group_size,
+                shuffle=True,
+                num_workers=cfg.data.num_workers,
+                collate_fn=grpo_collate_fn,
+            )
+
+            # grpo_val_loader = DataLoader(
+            #     grpo_val_dataset,
+            #     batch_size=batch_size,
+            #     shuffle=False,
+            #     num_workers=cfg.data.num_workers,
+            #     collate_fn=grpo_collate_fn,
+            # )
+
+            # grpo_test_loader = DataLoader(
+            #     grpo_test_dataset,
+            #     batch_size=batch_size,
+            #     shuffle=False,
+            #     num_workers=cfg.data.num_workers,
+            #     collate_fn=grpo_collate_fn,
+            # )
+
+            logger.info(
+                "GRPO Train DataLoader ready: steps_per_epoch={}, num_workers={}",
+                len(grpo_train_loader),
+                cfg.data.num_workers,
+            )
+        
 
         # -------------------------
         # optimizer / scheduler
@@ -702,10 +782,10 @@ def main():
         grpo_epochs = cfg.grpo.epochs if cfg.grpo.enabled else 0
         grpo_inner_updates = cfg.grpo.num_update_epochs if cfg.grpo.enabled else 0
 
-        sft_steps_per_epoch = math.ceil(len(train_loader) / grad_accum_steps)
+        sft_steps_per_epoch = math.ceil(len(sft_train_loader if sft_train_loader else []) / grad_accum_steps)
         sft_train_steps = sft_steps_per_epoch * sft_epochs
 
-        grpo_train_steps = len(train_loader) * grpo_epochs * max(1, grpo_inner_updates)
+        grpo_train_steps = len(grpo_train_loader if grpo_train_loader else []) * grpo_epochs * max(1, grpo_inner_updates)
         total_train_steps = max(1, sft_train_steps + grpo_train_steps)
         warmup_steps = int(total_train_steps * cfg.scheduler.warmup_ratio)
 
@@ -844,7 +924,7 @@ def main():
             val_metrics = evaluate(
                 model=model,
                 tokenizer=tokenizer,
-                dataset=val_dataset,
+                dataset=base_val_dataset,
                 device=device,
                 max_new_tokens=cfg.eval.max_new_tokens,
             )
@@ -911,6 +991,7 @@ def main():
         global_step = 0
 
         if cfg.sft.enabled and cfg.sft.epochs > 0:
+
             logger.info("===== SFT Warmup starts: epochs={} =====", cfg.sft.epochs)
 
             sft_epoch_bar = tqdm(
@@ -928,7 +1009,8 @@ def main():
                 train_metrics = train_sft_epoch(
                     model=model,
                     tokenizer=tokenizer,
-                    dataloader=train_loader,
+                    prompt_fn=prompt_fn,
+                    dataloader=sft_train_loader,
                     optimizer=optimizer,
                     scheduler=scheduler,
                     device=device,
@@ -1021,7 +1103,7 @@ def main():
                     prompt_fn=prompt_fn,
                     ref_model=ref_model,
                     tokenizer=tokenizer,
-                    dataloader=train_loader,
+                    dataloader=grpo_train_loader,
                     optimizer=optimizer,
                     scheduler=scheduler,
                     device=device,
@@ -1107,7 +1189,7 @@ def main():
         test_metrics = evaluate(
             model=eval_model,
             tokenizer=tokenizer,
-            dataset=test_dataset,
+            dataset=base_test_dataset,
             device=device,
             max_new_tokens=cfg.eval.max_new_tokens,
         )

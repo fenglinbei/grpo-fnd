@@ -1,11 +1,12 @@
 import torch
 from typing import Dict, Any
 
-from src.prompting.prompt_builder import build_prompt
+from src.datasets.schemas import Sample
+from prompting.sft_prompt_builder import build_prompt
 from src.prompting.output_paser import parse_answer_label
 
 @torch.no_grad()
-def predict_label(model, tokenizer, sample: Dict[str, Any], device: torch.device, max_new_tokens: int = 128):
+def predict_label(model, tokenizer, sample: Sample, device: torch.device, max_new_tokens: int = 128):
     model.eval()
     prompt = build_prompt(sample)
     enc = tokenizer(prompt, return_tensors="pt", add_special_tokens=True)
