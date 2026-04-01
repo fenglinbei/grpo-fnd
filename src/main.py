@@ -1009,13 +1009,10 @@ def main():
                 train_metrics = train_sft_epoch(
                     model=model,
                     tokenizer=tokenizer,
-                    prompt_fn=prompt_fn,
                     dataloader=sft_train_loader,
                     optimizer=optimizer,
                     scheduler=scheduler,
-                    device=device,
                     grad_accum_steps=cfg.train.grad_accum_steps,
-                    max_length=cfg.sft.max_length,
                     global_step=global_step,
                     on_step_end=on_step_end,
                 )

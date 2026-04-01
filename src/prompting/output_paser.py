@@ -18,7 +18,7 @@ EXPLANATION_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
-def parse_model_output(text: str) -> Dict[str, Union[Optional[str], bool]]:
+def parse_model_output(text: str) -> Dict:
     explanation_match = EXPLANATION_RE.search(text)
     answer_match = ANSWER_RE.search(text)
 

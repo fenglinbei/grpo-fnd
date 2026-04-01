@@ -5,13 +5,10 @@ from tqdm import tqdm
 def train_sft_epoch(
     model,
     tokenizer,
-    prompt_fn,
     dataloader,
     optimizer,
     scheduler,
-    device,
     grad_accum_steps: int = 1,
-    max_length: int | None = None,
     global_step: int = 0,
     on_step_end=None,
 ):
