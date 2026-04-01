@@ -18,7 +18,7 @@ optimizer:
 sft:
   enabled: true
   epochs: 1
-  max_length: 256 # 直接截断，不使用 sliding window
+  max_length: 256
 
 grpo:
   enabled: true
@@ -28,7 +28,8 @@ grpo:
   clip_eps: 0.2
   kl_beta: 0.0
   use_ref_model: false
-  max_new_tokens: 180
+  max_prompt_length: 512
+  max_new_tokens: 256
 
 train:
   batch_size: 1

@@ -1186,8 +1186,10 @@ def main():
         test_metrics = evaluate(
             model=eval_model,
             tokenizer=tokenizer,
+            prompt_fn=prompt_fn,
             dataset=base_test_dataset,
             device=device,
+            max_prompt_length=cfg.grpo.max_prompt_length,
             max_new_tokens=cfg.eval.max_new_tokens,
         )
 
