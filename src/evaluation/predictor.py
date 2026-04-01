@@ -61,7 +61,13 @@ def predict_label_batch(
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    prompts = [prompt_fn(sample) for sample in samples]
+    messages_list = [build_grpo_messages(sample, prompt_fn) for sample in samples]
+    prompts = [tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True,
+        enable_thinking=False,
+    ) for messages in messages_list]
 
     model_inputs = tokenizer(
         prompts,
