@@ -58,7 +58,7 @@ def setup_logger(output_dir: str, log_filename: str = "train.log", log_level: st
 
     logger.add(
         os.path.join(output_dir, log_filename),
-        level="INFO",
+        level=log_level,
         encoding="utf-8",
         enqueue=True,
         backtrace=False,

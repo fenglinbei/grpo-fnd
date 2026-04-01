@@ -1,5 +1,6 @@
 import torch
 from typing import Dict, Any, Optional
+from loguru import logger
 
 from src.datasets.schemas import Sample
 from src.prompting.grpo_prompt_builder import build_grpo_messages
@@ -93,6 +94,9 @@ def predict_label_batch(
     gen_only_ids = generated_ids[:, input_len:]
 
     outputs = tokenizer.batch_decode(gen_only_ids, skip_special_tokens=True)
+
+    logger.debug(f"Batch predict prompts: {prompts}")
+    logger.debug(f"Batch predict outputs: {outputs}")
 
     parsed = [parse_model_output(x) for x in outputs]
     pred_explanations = [x["explanation"] for x in parsed]
