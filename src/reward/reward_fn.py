@@ -1,5 +1,5 @@
 from transformers import PreTrainedTokenizer
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 from src.datasets.schemas import ID2LABEL, Sample
 from src.prompting.output_paser import parse_model_output
@@ -7,7 +7,11 @@ from src.config.registry import register_reward
 from src.config.schemas import RewardConfig
 
 @register_reward("basic_veracity_reward")
-def basic_veracity_reward(generated_text: str, sample: Sample, tokenizer: PreTrainedTokenizer, reward_cfg: RewardConfig) -> Dict[str, Any]:
+def basic_veracity_reward(
+    generated_text: str, 
+    sample: Sample, 
+    tokenizer: PreTrainedTokenizer, 
+    reward_cfg: RewardConfig) -> Dict[str, Any]:
 
     def compute_format_reward(parsed: Dict[str, Optional[str]]) -> float:
         return 1.0 if parsed["format_ok"] else 0.0
