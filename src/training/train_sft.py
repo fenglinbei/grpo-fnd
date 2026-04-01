@@ -1,5 +1,6 @@
 import torch
 from tqdm import tqdm
+from loguru import logger
 
 
 def train_sft_epoch(
@@ -22,7 +23,7 @@ def train_sft_epoch(
     pbar = tqdm(dataloader, desc="SFT", dynamic_ncols=True)
 
     for micro_step, batch_samples in enumerate(pbar, start=1):
-        print(batch_samples)
+        logger.debug("Processing batch {}", batch_samples)
         input_ids, attention_mask, labels = batch_samples
 
         outputs = model(

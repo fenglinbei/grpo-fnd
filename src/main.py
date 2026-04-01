@@ -1240,7 +1240,7 @@ def main():
                 swanlab.finish()
                 logger.info("SwanLab finished.")
             except Exception as e:
-                print(f"[WARN] swanlab.finish() failed: {e}")
+                logger.warning(f"[WARN] swanlab.finish() failed: {e}")
 
 if __name__ == "__main__":
     main()
