@@ -39,7 +39,7 @@ eval:
   max_new_tokens: 256
 
 reward:
-  label_correct: 1.0
+  label_correct: 2.0
   format_correct: 0.2
   explanation_overlap: 0.1
 

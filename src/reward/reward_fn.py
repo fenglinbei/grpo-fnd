@@ -28,9 +28,9 @@ def basic_veracity_reward(
             return 0.0
 
         n_words = len(explanation.split())
-        if n_words < 3:
+        if n_words < 20:
             return 0.2
-        if n_words > 120:
+        if n_words > 100:
             return 0.3
         return 1.0
 
