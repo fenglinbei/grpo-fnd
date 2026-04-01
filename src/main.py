@@ -556,8 +556,10 @@ def main_old():
     test_metrics = evaluate(
         model=eval_model,
         tokenizer=tokenizer,
+        prompt_fn=prompt_fn,
         dataset=test_dataset,
         device=device,
+        max_prompt_length=cfg.eval.max_prompt_length,
         max_new_tokens=cfg.eval.max_new_tokens,
     )
 
@@ -924,8 +926,10 @@ def main():
             val_metrics = evaluate(
                 model=model,
                 tokenizer=tokenizer,
+                prompt_fn=prompt_fn,
                 dataset=base_val_dataset,
                 device=device,
+                max_prompt_length=cfg.eval.max_prompt_length,
                 max_new_tokens=cfg.eval.max_new_tokens,
             )
 
@@ -1189,7 +1193,7 @@ def main():
             prompt_fn=prompt_fn,
             dataset=base_test_dataset,
             device=device,
-            max_prompt_length=cfg.grpo.max_prompt_length,
+            max_prompt_length=cfg.eval.max_prompt_length,
             max_new_tokens=cfg.eval.max_new_tokens,
         )
 
