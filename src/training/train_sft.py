@@ -23,8 +23,7 @@ def train_sft_epoch(
     pbar = tqdm(dataloader, desc="SFT", dynamic_ncols=True)
 
     for micro_step, batch_samples in enumerate(pbar, start=1):
-        logger.debug("Processing batch {}", batch_samples)
-        input_ids, attention_mask, labels = batch_samples
+        input_ids, attention_mask, labels = batch_samples['input_ids'], batch_samples['attention_mask'], batch_samples['labels']
 
         outputs = model(
             input_ids=input_ids,

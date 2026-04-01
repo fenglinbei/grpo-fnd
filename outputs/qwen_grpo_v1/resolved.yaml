@@ -12,6 +12,8 @@ model:
   trust_remote_code: false
   use_fast_tokenizer: true
   torch_dtype: auto
+  use_cache: false
+  gradient_checkpointing: true
 optimizer:
   name: adamw
   lr: 5.0e-06
@@ -39,12 +41,14 @@ reward:
   name: basic_veracity_reward
   label_correct: 1.0
   format_correct: 0.2
+  explanation_length: 0.8
   explanation_overlap: 0.1
   invalid_output_penalty: -0.2
   extras: {}
 sft:
-  enabled: false
+  enabled: true
   epochs: 1
+  max_length: 256
 grpo:
   enabled: true
   epochs: 2
@@ -54,19 +58,37 @@ grpo:
   kl_beta: 0.0
   temperature: 1.0
   top_p: 0.95
-  max_new_tokens: 160
+  max_new_tokens: 256
+  max_prompt_length: 512
   use_ref_model: false
   extras: {}
 train:
   batch_size: 2
+  grad_accum_steps: 2
 eval:
-  max_new_tokens: 128
+  max_prompt_length: 512
+  max_new_tokens: 180
   do_sample: false
+  every_n_steps: -1
+  eval_on_epoch_end: true
+  save_best_metric: macro_f1
 logging:
   output_root: outputs
   save_best: true
   save_last: true
   save_resolved_config: true
   print_config: true
+  level: DEBUG
+  swanlab_enabled: true
+  swanlab_project: grpo-veracity
+  swanlab_tags:
+  - grpo
+  - qwen
+  - liar
+  swanlab_group: qwen-0.6b
+  swanlab_experiment_name: qwen_grpo_v1
+  swanlab_description: First run of GRPO with Qwen-0.6B on the LIAR-RAW dataset. Using
+    1 epoch of SFT followed by 2 epochs of GRPO. Reward based on label correctness,
+    format correctness, and explanation overlap.
 experimental:
   note: first larger model run
