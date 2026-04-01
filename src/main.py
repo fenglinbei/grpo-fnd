@@ -551,7 +551,7 @@ def main():
                     dataloader=sft_train_loader,
                     optimizer=optimizer,
                     scheduler=scheduler,
-                    grad_accum_steps=cfg.train.grad_accum_steps,
+                    grad_accum_steps=cfg.sft.grad_accum_steps,
                     global_step=global_step,
                     on_step_end=on_step_end,
                 )
