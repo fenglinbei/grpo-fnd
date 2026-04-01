@@ -834,10 +834,10 @@ def main():
 
                 swanlab.log(
                     {
-                        "meta/train_size": float(len(train_dataset)),
-                        "meta/val_size": float(len(val_dataset)),
-                        "meta/test_size": float(len(test_dataset)),
-                        "meta/steps_per_epoch": float(len(train_loader)),
+                        "meta/train_size": float(len(base_train_dataset)),
+                        "meta/val_size": float(len(base_val_dataset)),
+                        "meta/test_size": float(len(base_test_dataset)),
+                        "meta/steps_per_epoch": float(len(grpo_train_loader)),
                         "meta/total_train_steps": float(total_train_steps),
                         "meta/warmup_steps": float(warmup_steps),
                     },
