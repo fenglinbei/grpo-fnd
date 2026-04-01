@@ -165,10 +165,8 @@ def main():
         logger.info("Using device: {}", device)
 
         sft_batch_size = cfg.sft.batch_size
-        grpo_batch_size = cfg.grpo.batch_size
         torch_dtype = resolve_torch_dtype(cfg.model.torch_dtype)
         logger.info("SFT Batch size: {}", sft_batch_size)
-        logger.info("GRPO Batch size: {}", grpo_batch_size)
 
         logger.info("Torch dtype: {}", cfg.model.torch_dtype)
 
