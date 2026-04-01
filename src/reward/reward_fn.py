@@ -22,12 +22,12 @@ def basic_veracity_reward(
             return 0.0
         return 1.0 if pred == gold_label else 0.0
     
-    def compute_reason_reward(parsed: Dict[str, Optional[str]]) -> float:
-        reason = parsed["reason"]
-        if reason is None:
+    def compute_explaination_reward(parsed: Dict[str, Optional[str]]) -> float:
+        explaination = parsed["explaination"]
+        if explaination is None:
             return 0.0
 
-        n_words = len(reason.split())
+        n_words = len(explaination.split())
         if n_words < 3:
             return 0.2
         if n_words > 120:
@@ -38,16 +38,16 @@ def basic_veracity_reward(
 
     r_format = compute_format_reward(parsed)
     r_label = compute_label_reward(parsed, ID2LABEL[sample.label])
-    r_reason = compute_reason_reward(parsed)
+    r_explaination = compute_explaination_reward(parsed)
 
-    total = reward_cfg.format_correct * r_format + reward_cfg.label_correct * r_label + reward_cfg.explanation_length * r_reason
+    total = reward_cfg.format_correct * r_format + reward_cfg.label_correct * r_label + reward_cfg.explanation_length * r_explaination
 
     return {
         "reward": total,
         "r_format": r_format,
         "r_label": r_label,
-        "r_reason": r_reason,
+        "r_explaination": r_explaination,
         "parsed_label": parsed["label"],
-        "parsed_reason": parsed["reason"],
+        "parsed_explaination": parsed["explaination"],
     }
 
