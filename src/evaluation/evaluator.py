@@ -1,5 +1,7 @@
 import torch
+import random
 from tqdm import tqdm
+from loguru import logger
 from src.datasets.json_dataset import VeracityJsonDataset
 from src.evaluation.predictor import predict_label, predict_label_batch
 from src.evaluation.metrics import compute_classification_metrics
@@ -60,6 +62,9 @@ def evaluate(
     batch_size: int = 8,
     quick_eval: bool = False,
     quick_eval_samples: int = 64,
+    quick_eval_mode: str = "random",
+    show_results: bool = True,
+    show_results_num: int = 5,
 ):
     model.eval()
 
@@ -69,6 +74,12 @@ def evaluate(
     eval_num = len(dataset)
     if quick_eval:
         eval_num = min(eval_num, quick_eval_samples)
+        sub_dataset = []
+        if quick_eval_mode == "random":
+            indices = random.sample(range(len(dataset)), eval_num)
+            for idx in indices:
+                sub_dataset.append(dataset[idx])
+        dataset = sub_dataset
 
     for start in tqdm(range(0, eval_num, batch_size), desc="Eval"):
         batch_samples = [dataset[i] for i in range(start, min(start + batch_size, eval_num))]
@@ -91,6 +102,16 @@ def evaluate(
                 pred_ids.append(-1)
             else:
                 pred_ids.append(LABEL2ID[pred_label])
+    if show_results:
+        logger.info("Show some evaluation results:")
+        for i in range(min(show_results_num, len(pred_ids))):
+            pred_label = ID2LABEL[pred_ids[i]] if pred_ids[i] != -1 else "None"
+            gold_label = ID2LABEL[gold_ids[i]]
+            pred_explanation = pred_explanations[i] if pred_explanations is not None else "None"
+            gold_explanation = batch_samples[i].explanation if batch_samples[i].explanation is not None else "None"
+            logger.info(f"Sample {i}: Predicted: {pred_label}, Gold: {gold_label}")
+            logger.info(f"Sample {i}: Predicted Explanation: {pred_explanation}")
+            logger.info(f"Sample {i}: Gold Explanation: {gold_explanation}")
 
     metrics = compute_classification_metrics(
         pred_ids=pred_ids,
