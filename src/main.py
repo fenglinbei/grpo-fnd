@@ -435,7 +435,7 @@ def main():
                         step=global_step,
                     )
 
-        def run_validation(stage: str, global_step: int, reason: str):
+        def run_validation(stage: str, global_step: int, reason: str, quick_eval: bool = False):
             if (
                 reason == "epoch_end"
                 and state["last_eval_step"] == global_step
@@ -466,6 +466,8 @@ def main():
                 device=device,
                 max_prompt_length=cfg.eval.max_prompt_length,
                 max_new_tokens=cfg.eval.max_new_tokens,
+                batch_size=cfg.eval.batch_size,
+                quick_eval=quick_eval,
             )
 
             if was_training:
@@ -522,6 +524,7 @@ def main():
                 stage=stage,
                 global_step=global_step,
                 reason="step",
+                quick_eval=True,
             )
 
         # -------------------------
@@ -730,6 +733,7 @@ def main():
             device=device,
             max_prompt_length=cfg.eval.max_prompt_length,
             max_new_tokens=cfg.eval.max_new_tokens,
+            batch_size=cfg.eval.batch_size,
         )
 
         logger.info(

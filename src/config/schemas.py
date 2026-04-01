@@ -91,6 +91,7 @@ class GRPOConfig(StrictBaseModel):
 class EvalConfig(StrictBaseModel):
     max_prompt_length: int = 512
     max_new_tokens: int = 128
+    batch_size: int = 8
     do_sample: bool = False
     every_n_steps: int = 0
     eval_on_epoch_end: bool = True
