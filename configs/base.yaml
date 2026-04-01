@@ -59,6 +59,7 @@ sft:
 grpo:
   enabled: true
   epochs: 1
+  batch_size: 4
   group_size: 4
   num_update_epochs: 2
   clip_eps: 0.2

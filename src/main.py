@@ -273,7 +273,7 @@ def main():
 
             grpo_train_loader = DataLoader(
                 grpo_train_dataset,
-                batch_size=cfg.grpo.group_size,
+                batch_size=cfg.grpo.batch_size,
                 shuffle=True,
                 num_workers=cfg.data.num_workers,
                 collate_fn=grpo_collate_fn,
@@ -281,7 +281,7 @@ def main():
 
             # grpo_val_loader = DataLoader(
             #     grpo_val_dataset,
-            #     batch_size=cfg.grpo.group_size,
+            #     batch_size=cfg.grpo.batch_size,
             #     shuffle=False,
             #     num_workers=cfg.data.num_workers,
             #     collate_fn=grpo_collate_fn,
@@ -289,7 +289,7 @@ def main():
 
             # grpo_test_loader = DataLoader(
             #     grpo_test_dataset,
-            #     batch_size=cfg.grpo.group_size,
+            #     batch_size=cfg.grpo.batch_size,
             #     shuffle=False,
             #     num_workers=cfg.data.num_workers,
             #     collate_fn=grpo_collate_fn,
