@@ -18,7 +18,7 @@ optimizer:
 sft:
   enabled: true
   epochs: 1
-  batch_size: 2
+  batch_size: 8
   grad_accum_steps: 1
   max_length: 512
 
