@@ -95,8 +95,8 @@ def predict_label_batch(
 
     outputs = tokenizer.batch_decode(gen_only_ids, skip_special_tokens=True)
 
-    logger.debug(f"Batch predict prompts: {prompts}")
-    logger.debug(f"Batch predict outputs: {outputs}")
+    # logger.debug(f"Batch predict prompts: {prompts}")
+    # logger.debug(f"Batch predict outputs: {outputs}")
 
     parsed = [parse_model_output(x) for x in outputs]
     pred_explanations = [x["explanation"] for x in parsed]
