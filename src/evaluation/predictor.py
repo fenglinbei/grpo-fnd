@@ -95,6 +95,6 @@ def predict_label_batch(
     outputs = tokenizer.batch_decode(gen_only_ids, skip_special_tokens=True)
 
     parsed = [parse_model_output(x) for x in outputs]
-    pred_explanations = [x[0] for x in parsed]
-    pred_labels = [x[1] for x in parsed]
+    pred_explanations = [x["explanation"] for x in parsed]
+    pred_labels = [x["label"] for x in parsed]
     return pred_explanations, pred_labels
