@@ -67,12 +67,15 @@ class RewardConfig(StrictBaseModel):
 class SFTConfig(StrictBaseModel):
     enabled: bool = True
     epochs: int = 1
+    batch_size: int = 2
+    grad_accum_steps: int = 1
     max_length: int = 512
 
 
 class GRPOConfig(StrictBaseModel):
     enabled: bool = True
     epochs: int = 1
+    grad_accum_steps: int = 1
     group_size: int = 4
     num_update_epochs: int = 2
     clip_eps: float = 0.2
@@ -83,11 +86,6 @@ class GRPOConfig(StrictBaseModel):
     max_prompt_length: int = 512
     use_ref_model: bool = False
     extras: Dict[str, Any] = Field(default_factory=dict)
-
-
-class TrainConfig(StrictBaseModel):
-    batch_size: int = 2
-    grad_accum_steps: int = 1
 
 
 class EvalConfig(StrictBaseModel):
@@ -135,7 +133,6 @@ class ExperimentConfig(StrictBaseModel):
     reward: RewardConfig = Field(default_factory=RewardConfig)
     sft: SFTConfig = Field(default_factory=SFTConfig)
     grpo: GRPOConfig = Field(default_factory=GRPOConfig)
-    train: TrainConfig = Field(default_factory=TrainConfig)
     eval: EvalConfig = Field(default_factory=EvalConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
 

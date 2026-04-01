@@ -52,6 +52,8 @@ reward:
 sft:
   enabled: true
   epochs: 1
+  batch_size: 4
+  grad_accum_steps: 1
   max_length: 512
 
 grpo:
@@ -67,10 +69,6 @@ grpo:
   max_new_tokens: 256
   use_ref_model: false
   extras: {}
-
-train:
-  batch_size: 2
-  grad_accum_steps: 1
 
 eval:
   max_new_tokens: 256
