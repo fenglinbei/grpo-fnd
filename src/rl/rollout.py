@@ -9,7 +9,7 @@ def rollout_group(
     model,
     tokenizer,
     prompt_fn,
-    batch_samples: List[Dict[str, Any]],
+    batch_samples: Dict[str, List[Any]],
     group_size: int,
     max_new_tokens: int,
     temperature: float,
@@ -32,11 +32,9 @@ def rollout_group(
     logger.debug(f"Rolling out group of {len(batch_samples)} samples with group size {group_size}...")
     logger.debug(f"batch_samples: {batch_samples}")
 
-    for sample in batch_samples:
-        prompt = prompt_fn(sample)
-        enc = tokenizer(prompt, return_tensors="pt", add_special_tokens=True)
-        input_ids = enc["input_ids"].to(device)
-        attention_mask = enc["attention_mask"].to(device)
+    for i in range(len(batch_samples["sample_ids"])):
+        input_ids = batch_samples["input_ids"][i].to(device)
+        attention_mask = batch_samples["attention_mask"][i].to(device)
         prompt_len = int(input_ids.size(1))
 
         # 对单个 prompt 一次性采样 group_size 个输出
