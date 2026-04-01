@@ -131,9 +131,10 @@ if __name__ == "__main__":
     #     output_dir="data/processed/LIAR"
     # )
 
-    build_and_save_rawfc_datasets(
-        train_dir="data/raw/RAWFC/train",
-        val_dir="data/raw/RAWFC/val",
-        test_dir="data/raw/RAWFC/test",
-        output_dir="data/processed/RAWFC"
-    )
+    # build_and_save_rawfc_datasets(
+    #     train_dir="data/raw/RAWFC/train",
+    #     val_dir="data/raw/RAWFC/val",
+    #     test_dir="data/raw/RAWFC/test",
+    #     output_dir="data/processed/RAWFC"
+    # )
+    pass

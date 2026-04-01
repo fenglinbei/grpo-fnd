@@ -44,7 +44,7 @@ Evidence:
 {sample.explanation}
 </explanation>
 <answer>
-{sample.label}
+{sample.label.name}
 </answer>"""
     
     return system_prompt, user_prompt, assistant_prompt

@@ -37,6 +37,6 @@ def encode_grpo_prompt(
         "prompt_text": prompt_text,
         "input_ids": enc["input_ids"],
         "attention_mask": enc["attention_mask"],
-        "gold_label": sample.label,
+        "gold_label": sample.label.name,
         "gold_explanation": sample.explanation,
     }
