@@ -36,7 +36,7 @@ def train_grpo_epoch(
 
     pbar = tqdm(dataloader, desc="GRPO", dynamic_ncols=True)
     for batch_samples in pbar:
-        batch_size = len(batch_samples)
+        batch_size = 1  # 当前实现仅支持 batch_size=1 的情况，因为 reward_fn 是逐样本评估的，后续可以改成多样本一起评估以支持更大的 batch_size
 
         # A. rollout（old policy）
         model.eval()
@@ -67,6 +67,7 @@ def train_grpo_epoch(
             device=device,
         )
 
+        # 此时默认batch_size=1，后续可以改成多样本一起评估
         idx = 0
         for b in range(batch_size):
             for g in range(group_size):
