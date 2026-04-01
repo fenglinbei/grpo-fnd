@@ -24,4 +24,5 @@ class GRPOPromptCollator:
             "prompt_texts": [f["prompt_text"] for f in features],
             "gold_labels": [f["gold_label"] for f in features],
             "gold_explanations": [f["gold_explanation"] for f in features],
+            "sample": [f["sample"] for f in features],  # 直接把原始 Sample 对象也放在这里，后续 reward_fn 评估时会用到
         }
