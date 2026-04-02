@@ -586,7 +586,7 @@ def main():
                         stage="sft",
                         global_step=global_step,
                         reason="epoch_end",
-                        quick_eval=True,
+                        quick_eval=False,
                     )
 
                 postfix = {

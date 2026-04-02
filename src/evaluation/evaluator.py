@@ -61,8 +61,8 @@ def evaluate(
     max_new_tokens: int = 64,
     batch_size: int = 8,
     quick_eval: bool = False,
-    quick_eval_samples: int = 128,
-    quick_eval_mode: str = "random",
+    quick_eval_samples: int = 256,
+    quick_eval_mode: str = "first_k",  # "random" or "first_k" 
     show_results: bool = False,
     show_results_num: int = 5,
 ):
@@ -78,6 +78,9 @@ def evaluate(
         if quick_eval_mode == "random":
             indices = random.sample(range(len(dataset)), eval_num)
             for idx in indices:
+                sub_dataset.append(dataset[idx])
+        elif quick_eval_mode == "first_k":
+            for idx in range(eval_num):
                 sub_dataset.append(dataset[idx])
         dataset = sub_dataset
 
