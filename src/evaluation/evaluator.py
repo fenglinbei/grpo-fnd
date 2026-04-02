@@ -129,8 +129,8 @@ def evaluate(
         # 随机选择一些结果展示
         indices = random.sample(range(len(pred_ids)), show_results_num)
         for i in indices:
-            pred_label = ID2LABEL[all_pred_labels[i]] if pred_ids[i] != -1 else "None"
-            gold_label = ID2LABEL[all_gold_labels[i]]
+            pred_label = all_pred_labels[i] if all_pred_labels[i] != -1 else "None"
+            gold_label = all_gold_labels[i]
             pred_explanation = all_pred_explanations[i] if all_pred_explanations[i] is not None else "None"
             gold_explanation = all_gold_explanations[i] if all_gold_explanations[i] is not None else "None"
             logger.info(f"======Sample {i}: ID: {all_sample_ids[i]}======")
