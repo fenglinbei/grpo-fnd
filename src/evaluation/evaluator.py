@@ -63,7 +63,7 @@ def evaluate(
     quick_eval: bool = False,
     quick_eval_samples: int = 256,
     quick_eval_mode: str = "first_k",  # "random" or "first_k" 
-    show_results: bool = False,
+    show_results: bool = True,
     show_results_num: int = 5,
 ):
     model.eval()
