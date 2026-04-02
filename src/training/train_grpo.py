@@ -1,3 +1,5 @@
+import math
+
 import torch
 from tqdm import tqdm
 from loguru import logger
@@ -85,6 +87,13 @@ def train_grpo_epoch(
         adv_mean = float(advantages.mean().item())
         adv_std = float(advantages.std(unbiased=False).item())
 
+        # 处理奖励细节，方便后续记录
+        processed_rewards_details = {}
+        for key in rewards_details[0][0].keys():
+            processed_rewards_details[key] = math.mean([
+                rewards_details[b][g][key] for g in range(group_size) for b in range(batch_size)
+            ])
+
         # C. 多轮更新当前 policy
         model.train()
         last_loss = None
@@ -128,7 +137,7 @@ def train_grpo_epoch(
                         "loss": float(last_loss.item()),
                         "reward": step_reward,
                         "reward_std": step_reward_std,
-                        "rewards_details": rewards_details,
+                        "rewards_details": processed_rewards_details,
                         "adv_mean": adv_mean,
                         "adv_std": adv_std,
                         "lr": current_lr,
