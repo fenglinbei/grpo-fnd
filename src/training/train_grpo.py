@@ -88,6 +88,7 @@ def train_grpo_epoch(
 
         # 处理奖励细节，方便后续记录
         processed_rewards_details = {}
+        logger.debug("Processing reward details for logging | rewards_details={}", rewards_details)
         for key in rewards_details[0][0].keys():
             processed_rewards_details[key] = np.mean([
                 rewards_details[b][g][key] for g in range(group_size) for b in range(batch_size)
