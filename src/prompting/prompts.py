@@ -14,8 +14,6 @@ def build_default_veracity_prompt(sample: Sample, prompt_cfg: PromptConfig) -> t
 
     system_prompt = """You are a fact-checking assistant.
 
-/no_think
-
 Given a claim and its evidence, do the following:
 1. Write a concise justification based only on the provided evidence.
 2. Predict exactly one label from:
