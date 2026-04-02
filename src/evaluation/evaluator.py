@@ -87,7 +87,7 @@ def evaluate(
     for start in tqdm(range(0, eval_num, batch_size), desc="Eval"):
         batch_samples = [dataset[i] for i in range(start, min(start + batch_size, eval_num))]
 
-        pred_explanations, pred_labels = predict_label_batch(
+        pred_explanations, pred_labels, raw_output, prompts = predict_label_batch(
             model=model,
             tokenizer=tokenizer,
             prompt_fn=prompt_fn,
@@ -112,9 +112,12 @@ def evaluate(
             gold_label = ID2LABEL[gold_ids[i]]
             pred_explanation = pred_explanations[i] if pred_explanations is not None else "None"
             gold_explanation = batch_samples[i].explanation if batch_samples[i].explanation is not None else "None"
-            logger.info(f"Sample {i}: Predicted: {pred_label}, Gold: {gold_label}")
-            logger.info(f"Sample {i}: Predicted Explanation: {pred_explanation}")
-            logger.info(f"Sample {i}: Gold Explanation: {gold_explanation}")
+            logger.info(f"======Sample {i}: ID: {batch_samples[i].id}======")
+            logger.info(f"Prompt: {prompts[i]}")
+            logger.info(f"Raw Output: {raw_output[i]}")
+            logger.info(f"Predicted: {pred_label}, Gold: {gold_label}")
+            logger.info(f"Predicted Explanation: {pred_explanation}")
+            logger.info(f"Gold Explanation: {gold_explanation}")
 
     metrics = compute_classification_metrics(
         pred_ids=pred_ids,
