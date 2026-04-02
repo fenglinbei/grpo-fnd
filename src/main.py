@@ -375,7 +375,7 @@ def main():
                         "meta/train_size": float(len(base_train_dataset)),
                         "meta/val_size": float(len(base_val_dataset)),
                         "meta/test_size": float(len(base_test_dataset)),
-                        "meta/steps_per_epoch": float(len(grpo_train_loader)),
+                        "meta/steps_per_epoch": float(len(grpo_train_loader or [])),
                         "meta/total_train_steps": float(total_train_steps),
                         "meta/warmup_steps": float(warmup_steps),
                     },
