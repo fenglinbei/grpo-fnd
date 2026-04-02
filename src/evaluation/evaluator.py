@@ -84,6 +84,14 @@ def evaluate(
                 sub_dataset.append(dataset[idx])
         dataset = sub_dataset
 
+    all_prompts = []
+    all_raw_outputs = []
+    all_pred_explanations = []
+    all_gold_explanations = []
+    all_pred_labels = []
+    all_gold_labels = []
+    all_sample_ids = []
+
     for start in tqdm(range(0, eval_num, batch_size), desc="Eval"):
         batch_samples = [dataset[i] for i in range(start, min(start + batch_size, eval_num))]
 
@@ -105,17 +113,30 @@ def evaluate(
                 pred_ids.append(-1)
             else:
                 pred_ids.append(LABEL2ID[pred_label])
+        
+        if show_results:
+            all_prompts.extend(prompts)
+            all_raw_outputs.extend(raw_output)
+            all_pred_explanations.extend(pred_explanations)
+            all_gold_explanations.extend([sample.explanation for sample in batch_samples])
+            all_pred_labels.extend(pred_labels)
+            all_gold_labels.extend([ID2LABEL[int(sample.label)] for sample in batch_samples])
+            all_sample_ids.extend([sample.id for sample in batch_samples])
+
     if show_results:
         logger.info("Show some evaluation results:")
-        for i in range(min(show_results_num, len(pred_ids))):
-            pred_label = ID2LABEL[pred_ids[i]] if pred_ids[i] != -1 else "None"
-            gold_label = ID2LABEL[gold_ids[i]]
-            pred_explanation = pred_explanations[i] if pred_explanations is not None else "None"
-            gold_explanation = batch_samples[i].explanation if batch_samples[i].explanation is not None else "None"
-            logger.info(f"======Sample {i}: ID: {batch_samples[i].id}======")
-            logger.info(f"Prompt: {prompts[i]}")
-            logger.info(f"Raw Output: {raw_output[i]}")
-            logger.info(f"Predicted: {pred_label}, Gold: {gold_label}")
+        show_results_num = min(show_results_num, len(pred_ids))
+        # 随机选择一些结果展示
+        indices = random.sample(range(len(pred_ids)), show_results_num)
+        for i in indices:
+            pred_label = ID2LABEL[all_pred_labels[i]] if pred_ids[i] != -1 else "None"
+            gold_label = ID2LABEL[all_gold_labels[i]]
+            pred_explanation = all_pred_explanations[i] if all_pred_explanations[i] is not None else "None"
+            gold_explanation = all_gold_explanations[i] if all_gold_explanations[i] is not None else "None"
+            logger.info(f"======Sample {i}: ID: {all_sample_ids[i]}======")
+            logger.info(f"Prompt: {all_prompts[i]}")
+            logger.info(f"Raw Output: {all_raw_outputs[i]}")
+            logger.info(f"Predicted: {all_pred_labels[i]}, Gold: {gold_label}")
             logger.info(f"Predicted Explanation: {pred_explanation}")
             logger.info(f"Gold Explanation: {gold_explanation}")
 
