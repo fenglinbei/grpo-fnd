@@ -90,9 +90,9 @@ def train_grpo_epoch(
         processed_rewards_details = {}
         reward_keys = ["reward", "r_exact", "r_ord", "r_bucket", "r_ground", "r_len", "penalty_invalid", "penalty_bad_format"]
         for key in reward_keys:
-            processed_rewards_details[key] = np.mean([
+            processed_rewards_details[key] = float(np.mean([
                 rewards_details[b][g][key] for g in range(group_size) for b in range(batch_size)
-            ])
+            ]))
 
         # C. 多轮更新当前 policy
         model.train()
