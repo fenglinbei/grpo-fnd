@@ -503,6 +503,12 @@ def main():
         def on_step_end(global_step: int, stage: str, model, tokenizer, train_metrics: dict):
             # 先记录训练指标
             if swanlab_run is not None and is_main_process():
+                logger.debug(
+                    "Logging training metrics to SwanLab | stage={} | global_step={} | train_metrics={}",
+                    stage,
+                    global_step,
+                    train_metrics,
+                )
                 train_log = flatten_scalar_metrics(f"train/{stage}", train_metrics)
                 train_log["train/global_step"] = float(global_step)
                 if optimizer.param_groups:

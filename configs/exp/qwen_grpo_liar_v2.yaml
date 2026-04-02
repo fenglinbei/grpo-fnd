@@ -1,6 +1,6 @@
 _base_: ../base.yaml
 
-exp_name: qwen_grpo_v1
+exp_name: qwen_grpo_liar_v2
 
 data:
   train_path: data/processed/LIAR-RAW/train.json
@@ -62,7 +62,7 @@ runtime:
   bf16: true
 
 experimental:
-  note: "first larger model run"
+  note: "使用了新的reward函数，增加了奖励细节的记录"
 
 logging:
   level: DEBUG
@@ -70,5 +70,5 @@ logging:
   swanlab_project: "grpo-veracity"
   swanlab_tags: ["grpo","qwen","liar"]
   swanlab_group: "qwen-0.6b"
-  swanlab_experiment_name: "qwen_grpo_v1"
-  swanlab_description: "First run of GRPO with Qwen-0.6B on the LIAR-RAW dataset. Using 1 epoch of SFT followed by 2 epochs of GRPO. Reward based on label correctness, format correctness, and explanation overlap."
+  swanlab_experiment_name: "qwen_grpo_liar_v2"
+  swanlab_description: ""
