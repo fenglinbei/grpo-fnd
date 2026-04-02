@@ -16,8 +16,8 @@ optimizer:
   lr: 5.0e-6
 
 sft:
-  enabled: false
-  epochs: 1
+  enabled: true
+  epochs: 2
   batch_size: 8
   grad_accum_steps: 1
   max_length: 512
@@ -26,13 +26,15 @@ grpo:
   enabled: true
   epochs: 2
   batch_size: 4
-  group_size: 8
-  num_update_epochs: 4
+  group_size: 4
+  num_update_epochs: 2
+  temperature: 0.8
+  top_p: 0.9
   clip_eps: 0.2
   kl_beta: 0.0
   use_ref_model: false
   max_prompt_length: 512
-  max_new_tokens: 256
+  max_new_tokens: 96
 
 eval:
   every_n_steps: 100
