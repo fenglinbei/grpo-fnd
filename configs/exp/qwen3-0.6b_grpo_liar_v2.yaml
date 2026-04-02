@@ -1,0 +1,74 @@
+_base_: ../base.yaml
+
+exp_name: qwen3-0.6b_grpo_liar_v2.yaml
+
+data:
+  train_path: data/processed/LIAR-RAW/train.json
+  val_path: data/processed/LIAR-RAW/val.json
+  test_path: data/processed/LIAR-RAW/test.json
+  num_workers: 0
+  max_evidence: null
+
+model:
+  name_or_path: models/Qwen3-0.6B/
+
+optimizer:
+  lr: 5.0e-6
+
+sft:
+  enabled: true
+  epochs: 2
+  batch_size: 8
+  grad_accum_steps: 1
+  max_length: 1024
+
+grpo:
+  enabled: true
+  epochs: 2
+  batch_size: 4
+  group_size: 4
+  num_update_epochs: 2
+  temperature: 0.8
+  top_p: 0.9
+  clip_eps: 0.2
+  kl_beta: 0.0
+  use_ref_model: false
+  max_prompt_length: 1024
+  max_new_tokens: 256
+
+eval:
+  every_n_steps: 500
+  max_new_tokens: 256
+
+reward:
+  name: veracity_reward_v2
+  extras: {
+    "w_exact": 1.0, # 预测标签完全正确的奖励权重
+    "w_ord": 0.15, # 预测标签顺序正确的奖励权重（例如，预测为 "half-true" 而不是 "true"）
+    "w_bucket": 0.1, # 预测标签落在正确的 bucket（例如，预测为 "half-true" 而不是 "false"）的奖励权重
+    "w_ground": 0.1, # 预测的事实与证据支持的事实重叠程度的奖励权重
+    "w_len": 0.05, # 生成的解释长度合理的奖励权重（例如，过短或过长都会被惩罚）
+    "invalid_penalty": -1.0, # 生成无效输出（例如，格式错误或完全不相关）的惩罚
+    "bad_format_penalty": -0.2, # 生成格式错误但能解析出标签的惩罚
+    "wrong_label_penalty": -0.0  # 生成格式正确但标签错误的输出的惩罚
+  }
+
+prompt:
+  name: default_veracity_prompt
+  require_format: true
+  extras: {"top_k_evidence": 5}
+
+runtime:
+  bf16: true
+
+experimental:
+  note: "使用了新的reward函数，增加了奖励细节的记录"
+
+logging:
+  level: DEBUG
+  swanlab_enabled: true
+  swanlab_project: "grpo-veracity"
+  swanlab_tags: ["grpo","qwen","liar"]
+  swanlab_group: "qwen3-0.6b"
+  swanlab_experiment_name: "qwen3-0.6b_grpo_liar_v2"
+  swanlab_description: "第一个完整测试版本"
