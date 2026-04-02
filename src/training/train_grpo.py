@@ -67,10 +67,13 @@ def train_grpo_epoch(
             device=device,
         )
 
+        rewards_details = [[None for _ in range(group_size)] for _ in range(batch_size)]
+
         idx = 0
         for b in range(batch_size):
             for g in range(group_size):
-                rewards[b, g] = reward_fn(flat_texts[idx], batch_samples["sample"][b], tokenizer)["reward"]
+                rewards_details[b][g] = reward_fn(flat_texts[idx], batch_samples["sample"][b], tokenizer)
+                rewards[b, g] = rewards_details[b][g]["reward"]
                 idx += 1
 
         advantages = compute_group_advantages(rewards)
@@ -125,6 +128,7 @@ def train_grpo_epoch(
                         "loss": float(last_loss.item()),
                         "reward": step_reward,
                         "reward_std": step_reward_std,
+                        "rewards_details": rewards_details,
                         "adv_mean": adv_mean,
                         "adv_std": adv_std,
                         "lr": current_lr,

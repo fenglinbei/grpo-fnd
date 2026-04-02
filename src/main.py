@@ -116,6 +116,9 @@ def to_float(v):
 def flatten_scalar_metrics(prefix: str, metrics: dict) -> dict:
     out = {}
     for k, v in metrics.items():
+        if isinstance(v, dict):
+            nested = flatten_scalar_metrics(f"{prefix}/{k}", v)
+            out.update(nested)
         fv = to_float(v)
         if fv is not None:
             out[f"{prefix}/{k}"] = fv
