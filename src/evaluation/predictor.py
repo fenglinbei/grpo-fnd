@@ -4,7 +4,7 @@ from loguru import logger
 
 from src.datasets.schemas import Sample
 from src.prompting.grpo_prompt_builder import build_grpo_messages
-from src.evaluation.parsers import parse_model_output
+from src.evaluation.parsers import default_parse_factcheck_output
 
 @torch.no_grad()
 def predict_label(
@@ -42,8 +42,8 @@ def predict_label(
     output_ids = generated_ids[0][len(model_inputs.input_ids[0]):]
     output_text = tokenizer.decode(output_ids, skip_special_tokens=True)
 
-    parsed = parse_model_output(output_text)
-    return parsed['explanation'], parsed['label']
+    explanation, label = default_parse_factcheck_output(output_text)
+    return explanation, label
 
 @torch.inference_mode()
 def predict_label_batch(
