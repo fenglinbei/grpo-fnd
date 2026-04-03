@@ -3,7 +3,7 @@ from transformers import PreTrainedTokenizer
 from typing import Dict, Optional, Any, Set, List
 
 from src.datasets.schemas import ID2LABEL, LABEL2ID, Sample
-from src.evaluation.parsers import parse_model_output
+from src.evaluation.parsers import default_parse_factcheck_output
 from src.config.registry import register_reward
 from src.config.schemas import RewardConfig
 
@@ -149,32 +149,31 @@ def basic_veracity_reward(
     tokenizer: PreTrainedTokenizer, 
     reward_cfg: RewardConfig) -> Dict[str, Any]:
 
-    def compute_format_reward(parsed: Dict[str, Optional[str]]) -> float:
-        return 1.0 if parsed["format_ok"] else 0.0
-    
-    def compute_label_reward(parsed: Dict[str, Optional[str]], gold_label: str) -> float:
-        pred = parsed["label"]
-        if pred is None:
+    def compute_format_reward(pred_explanation: Optional[str], pred_label: Optional[str]) -> float:
+        # Simplified format reward computation
+        return 1.0 if pred_explanation is not None and pred_label is not None else 0.0
+
+    def compute_label_reward(pred_label: Optional[str], gold_label: str) -> float:
+        if pred_label is None:
             return 0.0
-        return 1.0 if pred == gold_label else 0.0
+        return 1.0 if pred_label == gold_label else 0.0
     
-    def compute_explanation_reward(parsed: Dict[str, Optional[str]]) -> float:
-        explanation = parsed["explanation"]
-        if explanation is None:
+    def compute_explanation_reward(pred_explanation: Optional[str], gold_explanation: Optional[str]) -> float:
+        if pred_explanation is None:
             return 0.0
 
-        n_words = len(explanation.split())
+        n_words = len(pred_explanation.split())
         if n_words < 20:
             return 0.2
         if n_words > 100:
             return 0.3
         return 1.0
 
-    parsed = parse_model_output(generated_text)
+    pred_explanation, pred_label = default_parse_factcheck_output(generated_text)
 
-    r_format = compute_format_reward(parsed)
-    r_label = compute_label_reward(parsed, ID2LABEL[sample.label])
-    r_explanation = compute_explanation_reward(parsed)
+    r_format = compute_format_reward(pred_explanation=pred_explanation, pred_label=pred_label)
+    r_label = compute_label_reward(pred_label=pred_label, gold_label=ID2LABEL[sample.label])
+    r_explanation = compute_explanation_reward(pred_explanation=pred_explanation, gold_explanation=sample.explanation)
 
     total = reward_cfg.format_correct * r_format + reward_cfg.label_correct * r_label + reward_cfg.explanation_length * r_explanation
 
@@ -183,8 +182,8 @@ def basic_veracity_reward(
         "r_format": r_format,
         "r_label": r_label,
         "r_explanation": r_explanation,
-        "parsed_label": parsed["label"],
-        "parsed_explanation": parsed["explanation"],
+        "pred_label": pred_label,
+        "parsed_explanation": pred_explanation,
     }
 
 @register_reward("veracity_reward_v2")
@@ -204,14 +203,12 @@ def veracity_reward_v2(
     - r_len: 很弱的长度约束，防止 explanation 太短或纯灌水
     - invalid penalty: label 解析失败或格式坏掉时明确惩罚
     """
-    parsed = parse_model_output(generated_text)
+    pred_explanation, pred_label = default_parse_factcheck_output(generated_text)
 
-    pred_label = _normalize_label(parsed.get("label"))
     gold_id = int(sample.label)
     gold_label = ID2LABEL[gold_id]
 
-    format_ok = bool(parsed.get("format_ok", False))
-    explanation = parsed.get("explanation")
+    format_ok = bool(pred_explanation is not None and pred_label is not None)
 
     extras = reward_cfg.extras or {}
 
@@ -251,8 +248,8 @@ def veracity_reward_v2(
     r_exact = 1.0 if pred_id == gold_id else 0.0
     r_ord = _ordinal_similarity(pred_id, gold_id)
     r_bucket = 1.0 if _bucket_of(pred_id) == _bucket_of(gold_id) else 0.0
-    r_ground = _evidence_grounding_score(explanation, sample.evidence)
-    r_len = _explanation_length_score(explanation)
+    r_ground = _evidence_grounding_score(pred_explanation, sample.evidence)
+    r_len = _explanation_length_score(pred_explanation)
 
     reward = (
         w_exact * r_exact
@@ -291,7 +288,7 @@ def veracity_reward_v2(
         "gold_id": gold_id,
         "label_distance": dist,
         "format_ok": format_ok,
-        "parsed_explanation": explanation,
+        "pred_explanation": pred_explanation,
     }
 
 
