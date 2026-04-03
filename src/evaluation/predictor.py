@@ -4,7 +4,7 @@ from loguru import logger
 
 from src.datasets.schemas import Sample
 from src.prompting.grpo_prompt_builder import build_grpo_messages
-from evaluation.parsers import parse_model_output
+from src.evaluation.parsers import parse_model_output
 
 @torch.no_grad()
 def predict_label(
