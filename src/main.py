@@ -585,7 +585,7 @@ def main():
                 stage=stage,
                 global_step=global_step,
                 reason="step",
-                quick_eval=True,
+                quick_eval=False,
             )
 
         # -------------------------
