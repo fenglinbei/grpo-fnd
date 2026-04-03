@@ -157,14 +157,6 @@ class LiveVLLMWeightSyncController:
         names = []
         dtype_names = []
         shapes = []
-
-        # 查看前20个参数名
-        all_names = [name for name, _ in model.named_parameters()]
-        logger.debug("lm_head.weight" in all_names)
-        logger.debug("Last 10 parameter names: {}", all_names[-10:])
-        for name, p in named_params[:20]:
-            logger.debug("Sample param | name={} | dtype={} | shape={}", name, p.dtype, p.shape)
-
         for name, p in named_params:
             names.append(name)
             dtype_names.append(str(p.dtype).split(".")[-1])
