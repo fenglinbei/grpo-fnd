@@ -4,11 +4,13 @@
 
 若使用vllm加速推理，请先启动vllm：(启动前请确定端口是否空闲)
 VLLM_SERVER_DEV_MODE=1 \
+NCCL_CUMEM_HOST_ENABLE=0 \
+NCCL_CUMEM_ENABLE=0 \
 CUDA_VISIBLE_DEVICES=2,3 \
 vllm serve ./models/Qwen3-0.6B \
   --served-model-name live-policy \
   --tensor-parallel-size 2 \
-  --weight-transfer-config '{"backend":"nccl"}' \
+  --host 0.0.0.0 \
   --port 10909
 
 运行方式（使用qwen_grpo_v1.yaml）：
