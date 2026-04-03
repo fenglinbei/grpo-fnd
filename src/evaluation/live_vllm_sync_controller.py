@@ -153,7 +153,7 @@ class LiveVLLMWeightSyncController:
     # -------------------------
     @staticmethod
     def _collect_named_parameters(model: nn.Module):
-        named_params = list(model.named_parameters())
+        named_params = list(model.named_parameters(remove_duplicate=False))
         names = []
         dtype_names = []
         shapes = []
