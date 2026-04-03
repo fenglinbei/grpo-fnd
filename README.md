@@ -8,7 +8,7 @@ CUDA_VISIBLE_DEVICES=2,3 \
 vllm serve ./models/Qwen3-0.6B \
   --served-model-name live-policy \
   --tensor-parallel-size 2 \
-  --weight-transfer-config '{"backend":"nccl"}'
+  --weight-transfer-config '{"backend":"nccl"}' \
   --port 10909
 
 运行方式（使用qwen_grpo_v1.yaml）：
