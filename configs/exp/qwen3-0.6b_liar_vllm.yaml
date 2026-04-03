@@ -83,7 +83,7 @@ prompt:
 
 runtime:
   bf16: true
-  device: cuda:2
+  device: cuda
 
 experimental:
   note: "使用了新的reward函数，增加了奖励细节的记录"
