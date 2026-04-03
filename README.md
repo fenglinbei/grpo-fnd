@@ -6,10 +6,10 @@
 VLLM_SERVER_DEV_MODE=1 \
 NCCL_CUMEM_HOST_ENABLE=0 \
 NCCL_CUMEM_ENABLE=0 \
-CUDA_VISIBLE_DEVICES=2,3 \
+CUDA_VISIBLE_DEVICES=3 \
 vllm serve ./models/Qwen3-0.6B \
   --served-model-name live-policy \
-  --tensor-parallel-size 2 \
+  --tensor-parallel-size 1 \
   --host 0.0.0.0 \
   --port 10909 \
   --weight-transfer-config '{"backend":"nccl"}'
