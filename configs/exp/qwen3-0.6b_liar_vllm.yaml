@@ -11,6 +11,7 @@ data:
 
 model:
   name_or_path: models/Qwen3-0.6B/
+  torch_dtype: bfloat16
 
 vllm:
   base_url: http://127.0.0.1:10909
