@@ -3,7 +3,7 @@ from transformers import PreTrainedTokenizer
 from typing import Dict, Optional, Any, Set, List
 
 from src.datasets.schemas import ID2LABEL, LABEL2ID, Sample
-from src.prompting.output_paser import parse_model_output
+from evaluation.output_paser import parse_model_output
 from src.config.registry import register_reward
 from src.config.schemas import RewardConfig
 

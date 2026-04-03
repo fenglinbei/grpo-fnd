@@ -2,6 +2,14 @@
 
 配置库：configs/exp
 
+若使用vllm加速推理，请先启动vllm：
+VLLM_SERVER_DEV_MODE=1 \
+CUDA_VISIBLE_DEVICES=2,3 \
+vllm serve ./models/Qwen3-0.6B \
+  --served-model-name live-policy \
+  --tensor-parallel-size 2 \
+  --weight-transfer-config '{"backend":"nccl"}'
+
 运行方式（使用qwen_grpo_v1.yaml）：
 python -m src.main --config configs/exp/qwen_grpo_v1.yaml
 
@@ -19,6 +27,10 @@ pip3 install torch torchvision
 
 cuda12.8:
 pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+
+vllm:
+pip install uv
+uv pip install vllm --torch-backend=auto
 
 其他依赖：
 pip install -r requirements.txt

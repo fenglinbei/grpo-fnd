@@ -90,12 +90,22 @@ class GRPOConfig(StrictBaseModel):
 
 
 class EvalConfig(StrictBaseModel):
-    max_prompt_length: int = 512
-    max_new_tokens: int = 128
+    backend: Literal["none", "vllm"] = "none"
     batch_size: int = 8
+    max_prompt_length: int = 1024
+    max_new_tokens: int = 128
     do_sample: bool = False
+    temperature: float = 0.0
+    top_p: float = 1.0
+    top_k: int = -1
+    repetition_penalty: float = 1.0
+    stop: Optional[List[str]] = None
     every_n_steps: int = 0
     eval_on_epoch_end: bool = True
+    quick_eval_samples: int = 256
+    quick_eval_mode: Literal["random", "first_k"] = "first_k"
+    show_results: bool = True
+    show_results_num: int = 5
     save_best_metric: Literal[
         "accuracy",
         "macro_precision",
@@ -105,6 +115,19 @@ class EvalConfig(StrictBaseModel):
         "weighted_recall",
         "weighted_f1",
     ] = "macro_f1"
+
+
+class VLLMConfig(BaseModel):
+    base_url: str = "http://127.0.0.1:8000"
+    served_model_name: str = "live-policy"
+    api_key: str = "EMPTY"   # vLLM OpenAI-compatible server 默认不校验真实 key
+    sync_backend: Literal["nccl", "ipc"] = "nccl"
+    sync_policy: Literal["always", "if_step_changed", "never"] = "if_step_changed"
+    packed: bool = True
+    generation_concurrency: int = 8
+    use_for_step_eval: bool = True
+    use_for_epoch_eval: bool = True
+    use_for_final_test: bool = True
 
 
 class LoggingConfig(StrictBaseModel):
@@ -136,6 +159,7 @@ class ExperimentConfig(StrictBaseModel):
     sft: SFTConfig = Field(default_factory=SFTConfig)
     grpo: GRPOConfig = Field(default_factory=GRPOConfig)
     eval: EvalConfig = Field(default_factory=EvalConfig)
+    vllm: VLLMConfig = Field(default_factory=VLLMConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
 
     # 临时实验字段：当某个想法还没稳定时，先放这里

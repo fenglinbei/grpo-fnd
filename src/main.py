@@ -28,6 +28,8 @@ from src.datasets.collators.grpo import GRPOPromptCollator
 from src.training.train_sft import train_sft_epoch
 from src.training.train_grpo import train_grpo_epoch
 from src.evaluation.evaluator import evaluate
+from src.inference.facttory import build_generation_backend
+from src.evaluation.parsers import default_parse_factcheck_output
 
 import src.prompting.prompts
 import src.reward.reward_fn
@@ -400,6 +402,53 @@ def main():
             "last_eval_stage": None,
         }
 
+        eval_backend = build_generation_backend(cfg)
+        live_vllm_evaluator = None
+        if getattr(cfg.eval, "backend", "hf") == "vllm":
+            from src.evaluation.live_vllm_sync_config import LiveVLLMSyncEvalConfig
+            from src.evaluation.live_vllm_sync_controller import LiveVLLMWeightSyncController
+            from src.evaluation.live_vllm_generator import LiveVLLMGenerator
+            from src.evaluation.evaluator_live_vllm_sync import LiveEvalRuntime, LiveVLLMSyncedEvaluator
+
+            sync_cfg = LiveVLLMSyncEvalConfig(
+                enabled=True,
+                backend="live_vllm_sync",
+                base_url=cfg.vllm.base_url,
+                served_model_name=cfg.vllm.served_model_name,
+                api_key=getattr(cfg.vllm, "api_key", "EMPTY"),
+                sync_backend=getattr(cfg.vllm, "sync_backend", "nccl"),
+                sync_policy=getattr(cfg.vllm, "sync_policy", "if_step_changed"),
+                packed=getattr(cfg.vllm, "packed", True),
+                generation_concurrency=getattr(cfg.vllm, "generation_concurrency", 8),
+                temperature=getattr(cfg.eval, "temperature", 0.0),
+                top_p=getattr(cfg.eval, "top_p", 1.0),
+                max_new_tokens=cfg.eval.max_new_tokens,
+                stop=getattr(cfg.eval, "stop", None),
+                use_for_step_eval=getattr(cfg.vllm, "use_for_step_eval", False),
+                use_for_epoch_eval=getattr(cfg.vllm, "use_for_epoch_eval", True),
+                use_for_final_test=getattr(cfg.vllm, "use_for_final_test", True),
+                verbose=True,
+            )
+
+            sync_controller = LiveVLLMWeightSyncController(sync_cfg)
+            generator = LiveVLLMGenerator(sync_cfg)
+            runtime = LiveEvalRuntime(
+                sync_controller=sync_controller,
+                generator=generator,
+                parse_output_fn=default_parse_factcheck_output,
+                cfg=sync_cfg,
+            )
+            live_vllm_evaluator = LiveVLLMSyncedEvaluator(runtime)
+
+        def should_use_live_vllm_sync(reason: str) -> bool:
+            if live_vllm_evaluator is None:
+                return False
+            if reason == "step":
+                return live_vllm_evaluator.runtime.cfg.use_for_step_eval
+            if reason == "epoch_end":
+                return live_vllm_evaluator.runtime.cfg.use_for_epoch_eval
+            return False
+
         def save_best_checkpoint_if_needed(val_metrics: dict, stage: str, global_step: int, reason: str):
             if not cfg.logging.save_best:
                 return
@@ -444,11 +493,7 @@ def main():
                 and state["last_eval_step"] == global_step
                 and state["last_eval_stage"] == stage
             ):
-                logger.info(
-                    "Skip duplicated epoch-end validation at step {} ({})",
-                    global_step,
-                    stage,
-                )
+                logger.info("Skip duplicated epoch-end validation at step {} ({})", global_step, stage)
                 return None
 
             logger.info(
@@ -461,6 +506,8 @@ def main():
             was_training = model.training
             model.eval()
 
+            use_live_vllm = should_use_live_vllm_sync(reason)
+
             val_metrics = evaluate(
                 model=model,
                 tokenizer=tokenizer,
@@ -471,6 +518,13 @@ def main():
                 max_new_tokens=cfg.eval.max_new_tokens,
                 batch_size=cfg.eval.batch_size,
                 quick_eval=quick_eval,
+                quick_eval_samples=getattr(cfg.eval, "quick_eval_samples", 256),
+                quick_eval_mode=getattr(cfg.eval, "quick_eval_mode", "first_k"),
+                show_results=getattr(cfg.eval, "show_results", True),
+                show_results_num=getattr(cfg.eval, "show_results_num", 5),
+                global_step=global_step,
+                live_vllm_evaluator=live_vllm_evaluator,
+                use_live_vllm_sync=use_live_vllm,
             )
 
             if was_training:
@@ -729,6 +783,11 @@ def main():
                 torch_dtype=torch_dtype,
             ).to(device)
 
+        use_live_vllm_final = (
+            live_vllm_evaluator is not None
+            and live_vllm_evaluator.runtime.cfg.use_for_final_test
+        )
+
         test_metrics = evaluate(
             model=eval_model,
             tokenizer=tokenizer,
@@ -738,6 +797,9 @@ def main():
             max_prompt_length=cfg.eval.max_prompt_length,
             max_new_tokens=cfg.eval.max_new_tokens,
             batch_size=cfg.eval.batch_size,
+            global_step=global_step,
+            live_vllm_evaluator=live_vllm_evaluator,
+            use_live_vllm_sync=use_live_vllm_final,
         )
 
         logger.info(
