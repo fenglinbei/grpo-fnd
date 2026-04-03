@@ -11,7 +11,8 @@ vllm serve ./models/Qwen3-0.6B \
   --served-model-name live-policy \
   --tensor-parallel-size 2 \
   --host 0.0.0.0 \
-  --port 10909
+  --port 10909 \
+  --weight-transfer-config '{"backend":"nccl"}'
 
 运行方式（使用qwen_grpo_v1.yaml）：
 python -m src.main --config configs/exp/qwen_grpo_v1.yaml
