@@ -93,5 +93,5 @@ logging:
   swanlab_project: "grpo-veracity"
   swanlab_tags: ["grpo","qwen","liar"]
   swanlab_group: "qwen3-0.6b"
-  swanlab_experiment_name: "qwen3-0.6b_grpo_liar_v2"
-  swanlab_description: "第一个完整测试版本"
+  swanlab_experiment_name: "qwen3-0.6b_liar_vllm"
+  swanlab_description: "引入vllm同步评估，使用新的reward函数增加奖励细节记录"
