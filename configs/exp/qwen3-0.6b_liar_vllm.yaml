@@ -58,7 +58,7 @@ eval:
   temperature: 0.0
   top_p: 1.0
   top_k: -1
-  repetition_penalty: 1.0
+  repetition_penalty: 1.2
   quick_eval_samples: 256
   quick_eval_mode: "first_k"
   show_results: true
