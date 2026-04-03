@@ -28,7 +28,6 @@ from src.datasets.collators.grpo import GRPOPromptCollator
 from src.training.train_sft import train_sft_epoch
 from src.training.train_grpo import train_grpo_epoch
 from src.evaluation.evaluator import evaluate
-from src.inference.facttory import build_generation_backend
 from src.evaluation.parsers import default_parse_factcheck_output
 
 import src.prompting.prompts
@@ -402,7 +401,6 @@ def main():
             "last_eval_stage": None,
         }
 
-        eval_backend = build_generation_backend(cfg)
         live_vllm_evaluator = None
         if getattr(cfg.eval, "backend", "hf") == "vllm":
             from src.evaluation.live_vllm_sync_config import LiveVLLMSyncEvalConfig
