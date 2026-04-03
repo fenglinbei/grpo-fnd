@@ -10,6 +10,7 @@ CUDA_VISIBLE_DEVICES=3 \
 vllm serve ./models/Qwen3-0.6B \
   --served-model-name live-policy \
   --tensor-parallel-size 1 \
+  --dtype bfloat16 \
   --host 0.0.0.0 \
   --port 10909 \
   --weight-transfer-config '{"backend":"nccl"}'
