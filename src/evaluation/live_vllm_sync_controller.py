@@ -157,6 +157,9 @@ class LiveVLLMWeightSyncController:
         names = []
         dtype_names = []
         shapes = []
+        # 查看前20个参数名
+        for name, p in named_params[:20]:
+            logger.debug("Sample param | name={} | dtype={} | shape={}", name, p.dtype, p.shape)
         for name, p in named_params:
             names.append(name)
             dtype_names.append(str(p.dtype).split(".")[-1])

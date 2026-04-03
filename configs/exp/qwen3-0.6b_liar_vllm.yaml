@@ -51,7 +51,7 @@ grpo:
 
 eval:
   backend: "vllm"   # "none" 或 "vllm"
-  every_n_steps: 500
+  every_n_steps: 200
   batch_size: 16
   max_prompt_length: 1024
   max_new_tokens: 256
