@@ -14,10 +14,10 @@ vllm serve ./models/Qwen3-0.6B \
   --port 10909 \
   --weight-transfer-config '{"backend":"nccl"}'
 
-运行方式（使用qwen_grpo_v1.yaml）：
+运行方式（使用qwen3-0.6b_liar_vllm.yaml）：
 NCCL_CUMEM_HOST_ENABLE=0 \
 NCCL_CUMEM_ENABLE=0 \
-python -m src.main --config configs/exp/qwen_grpo_v1.yaml
+python -m src.main --config configs/exp/qwen3-0.6b_liar_vllm.yaml
 
 模型下载（Qwen/Qwen3-0.6B）：
 mkdir models
