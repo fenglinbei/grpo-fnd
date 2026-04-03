@@ -403,6 +403,8 @@ def main():
 
         live_vllm_evaluator = None
         if getattr(cfg.eval, "backend", "hf") == "vllm":
+
+            logger.info("Setting up LiveVLLM synced evaluation backend...")
             from src.evaluation.live_vllm_sync_config import LiveVLLMSyncEvalConfig
             from src.evaluation.live_vllm_sync_controller import LiveVLLMWeightSyncController
             from src.evaluation.live_vllm_generator import LiveVLLMGenerator
@@ -437,6 +439,10 @@ def main():
                 cfg=sync_cfg,
             )
             live_vllm_evaluator = LiveVLLMSyncedEvaluator(runtime)
+
+            logger.info("LiveVLLM synced evaluation backend ready.")
+        else:
+            logger.info("Using standard HF evaluation backend.")
 
         def should_use_live_vllm_sync(reason: str) -> bool:
             if live_vllm_evaluator is None:
