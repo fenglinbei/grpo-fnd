@@ -91,3 +91,18 @@ Evidence:
 </explanation>"""
     
     return system_prompt, user_prompt, assistant_prompt
+
+if __name__ == "__main__":
+    # 这里简单测试一下 prompt 的输出格式
+    from src.datasets.json_dataset import VeracityJsonDataset
+
+    dataset = VeracityJsonDataset(dataset_path="data/processed/LIAR-RAW/test.json")
+    sample = dataset[0]
+    system, user, assistant = build_default_veracity_prompt(sample, PromptConfig(extras={"top_k_evidence": 5}))
+
+    print("=== System Prompt ===")
+    print(repr(system))
+    print("\n=== User Prompt ===")
+    print(repr(user))
+    print("\n=== Assistant Prompt ===")
+    print(repr(assistant))
